@@ -1,0 +1,15 @@
+[project]
+name = "visuelle-proto"
+version = "1.0.0"
+description = "VISUELLE 2.0 demand forecasting and replenishment prototype"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+    "integration: end-to-end pipeline tests",
+    "ui: console panel tests",
+    "docs: documentation contract tests",
+]

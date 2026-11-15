@@ -1,0 +1,1 @@
+"""Operational entry points. Files here are executed, never imported by src/."""

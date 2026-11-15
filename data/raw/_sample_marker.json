@@ -1,0 +1,8 @@
+{
+  "generator": "codes.sample_data",
+  "seed": 42,
+  "items": 200,
+  "stores": 20,
+  "self_test_only": true,
+  "notice": "[sample] SAMPLE DATA - SELF-TEST ONLY. Figures derived from it must never be reported as results."
+}

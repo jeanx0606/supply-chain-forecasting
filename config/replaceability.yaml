@@ -1,0 +1,355 @@
+register_version: 3
+entries:
+- rep_id: REP-01
+  decision: Where the chronological train/validation/test cut points fall
+  current_default: chronological with 70/15/15 ratios on distinct release dates
+  seam: SEAM-SPLIT-CUT
+  location: "split.train_ratio, split.val_ratio, split.test_ratio, split.policy \xB7\
+    \ capability 5.7 split"
+  replacement_entails: "configuration only \u2014 change ratios or set explicit cut\
+    \ dates; call sites affected: 0"
+  confirm_with: Linda (Chapter 7)
+  status: Provisional
+  affected_outputs:
+  - metrics
+  - split.cut_train_end
+  - split.cut_validation_end
+  - replenishment
+  confirmed_by: null
+  confirmed_on: null
+- rep_id: REP-02
+  decision: Which model is the reported main model and which is the baseline
+  current_default: gradient_boosting as main, seasonal_naive as baseline
+  seam: SEAM-MODEL-SELECT
+  location: "model.selected, model.baseline \xB7 capability 5.9 forecasting"
+  replacement_entails: "configuration only \u2014 select any registered model name;\
+    \ call sites affected: 0"
+  confirm_with: Linda (Chapter 7)
+  status: Provisional
+  affected_outputs:
+  - metrics
+  - main_model
+  - replenishment.recommended_qty
+  confirmed_by: null
+  confirmed_on: null
+- rep_id: REP-03
+  decision: Which metric is primary and which are supporting
+  current_default: wape_item_level primary; pooled WAPE, MAE, RMSE, store-weighted
+    and small-store WAPE supporting
+  seam: SEAM-METRIC-SET
+  location: "metrics.primary, metrics.supporting \xB7 capability 5.10 evaluation"
+  replacement_entails: "configuration only \u2014 change the metric names; the record\
+    \ contract is unchanged; call sites affected: 0"
+  confirm_with: Linda (Chapter 7)
+  status: Provisional
+  affected_outputs:
+  - metrics
+  confirmed_by: null
+  confirmed_on: null
+- rep_id: REP-04
+  decision: Whether restock events are retained by lifecycle membership or by a hard
+    calendar cutoff
+  current_default: lifecycle_membership, so late-2019 releases keep their 2020 shipments
+  seam: SEAM-RESTOCK-TRUNC
+  location: "truncation.restock_policy, truncation.restock_date_max \xB7 capability\
+    \ 5.1 ingestion / 5.6 inventory"
+  replacement_entails: "configuration only \u2014 set lifecycle_membership | calendar_cutoff;\
+    \ restock_date_max is applied or echoed inactive; call sites affected: 0"
+  confirm_with: Rue (Chapter 5)
+  status: Provisional
+  affected_outputs:
+  - inventory.entries
+  - inventory.sellout_week
+  - replenishment
+  - risk
+  confirmed_by: null
+  confirmed_on: null
+  config_keys:
+  - truncation.restock_policy
+  - truncation.restock_date_max
+  options:
+  - lifecycle_membership
+  - calendar_cutoff
+  affected_gates:
+  - B11
+  - B2
+  - B5
+- rep_id: REP-05
+  decision: Whether the preset train/test files replace the chronological split
+  current_default: "false \u2014 preset files are not supplied by this dataset"
+  seam: SEAM-PRESET-FILES
+  location: "split.use_preset_files \xB7 capability 5.7 split"
+  replacement_entails: 'configuration plus the two preset files; rejected at load
+    time while they are absent; call sites affected: 0'
+  confirm_with: Rue (Chapter 5)
+  status: Confirmed
+  affected_outputs:
+  - split.counts
+  - metrics
+  - split.preset
+  confirmed_by: Rue
+  confirmed_on: '2026-11-15'
+- rep_id: REP-06
+  decision: Where and in what format run artefacts are persisted
+  current_default: json+csv under output/<run_id>/
+  seam: SEAM-OUTPUT-ARTEFACT
+  location: "output.enabled, output.dir, output.format \xB7 capability 5.13 orchestration"
+  replacement_entails: "adapter swap or configuration only \u2014 new writer class\
+    \ implementing the protocol; call sites affected: 0"
+  confirm_with: Ashley (Chapter 6)
+  status: Provisional
+  affected_outputs:
+  - artefact_dir
+  - report.dir
+  - chapter_pack.path
+  - chapter_pack.trace
+  confirmed_by: null
+  confirmed_on: null
+- rep_id: REP-07
+  decision: How the unobserved opening stock I0 is back-calculated
+  current_default: lead_time_demand (first lead-time demand times the safety factor)
+  seam: SEAM-INITIAL-STOCK
+  location: "inventory.initial_stock_method, inventory.lead_time_weeks, inventory.safety_factor\
+    \ \xB7 capability 5.6 inventory"
+  replacement_entails: "configuration only \u2014 lead_time_demand | first_restock\
+    \ | rolling_minimum; call sites affected: 0"
+  confirm_with: team (Chapter 6 review)
+  status: Provisional
+  affected_outputs:
+  - inventory.initial_stock
+  - inventory.entries
+  - replenishment
+  - risk
+  confirmed_by: null
+  confirmed_on: null
+- rep_id: REP-08
+  decision: How locality-level weather is attached to an item-store row
+  current_default: pooled_representative (one aggregate per ISO week, record count
+    preserved)
+  seam: SEAM-WEATHER-JOIN
+  location: "weather.join_mode \xB7 capability 5.4 weather"
+  replacement_entails: 'configuration only for pooled_representative | omitted; mapped
+    additionally needs a store-locality map; call sites affected: 0'
+  confirm_with: Rue (Chapter 5)
+  status: Provisional
+  affected_outputs:
+  - metrics
+  - features
+  confirmed_by: null
+  confirmed_on: null
+- rep_id: REP-09
+  decision: Whether Google Trends is consumed as features or declared out of scope
+  current_default: "deferred \u2014 file present, series not joined, status reported"
+  seam: SEAM-TRENDS
+  location: "channels.gtrends \xB7 capability 5.1 ingestion"
+  replacement_entails: "configuration only \u2014 consume | deferred | skip; call\
+    \ sites affected: 0"
+  confirm_with: Ashley (Chapter 6)
+  status: Provisional
+  affected_outputs:
+  - channels
+  - metrics
+  confirmed_by: null
+  confirmed_on: null
+- rep_id: REP-10
+  decision: Whether safety stock is implemented from the service level, or the service
+    level is removed from scope
+  current_default: normal_approx (normal approximation from the configured service
+    level)
+  seam: SEAM-SAFETY-STOCK
+  location: "replenish.safety_stock_method, replenish.service_level \xB7 capability\
+    \ 5.11 replenishment"
+  replacement_entails: "configuration only \u2014 normal_approx | none; none declares\
+    \ the service level out of scope; call sites affected: 0"
+  confirm_with: Linda (Chapter 7)
+  status: Provisional
+  affected_outputs:
+  - replenishment.reorder_point
+  - replenishment.target_level
+  - replenishment.recommended_qty
+  - risk.stockout_proxy
+  - risk.overstock
+  confirmed_by: null
+  confirmed_on: null
+  config_keys:
+  - replenish.safety_stock_method
+  - replenish.service_level
+  - replenish.order_cycle_weeks
+  options:
+  - normal_approx
+  - none
+  affected_gates:
+  - B4
+  - B5
+  - B23
+- rep_id: REP-11
+  decision: Which item-store row is used for the replenishment demonstration
+  current_default: max_horizon_demand with ties broken by (external_code, retail)
+  seam: SEAM-DEMO-SELECT
+  location: "demo.selection_rule, demo.pin_item, demo.pin_store \xB7 capability 5.12\
+    \ risk"
+  replacement_entails: "configuration only \u2014 max_horizon_demand | pinned; call\
+    \ sites affected: 0"
+  confirm_with: Ashley (Chapter 6)
+  status: Provisional
+  affected_outputs:
+  - demonstration
+  - replenishment
+  - risk
+  confirmed_by: null
+  confirmed_on: null
+- rep_id: REP-12
+  decision: At which grain the forecast task is built
+  current_default: "item_store \u2014 the only registered grain"
+  seam: SEAM-GRAIN
+  location: "spine.granularity \xB7 capability 5.8 features"
+  replacement_entails: "adapter swap \u2014 register a new GrainAdapter; other values\
+    \ are rejected naming the supported one; call sites affected: 0"
+  confirm_with: Linda (Chapter 7)
+  status: Provisional
+  affected_outputs:
+  - metrics
+  - replenishment
+  confirmed_by: null
+  confirmed_on: null
+- rep_id: REP-13
+  decision: Which week convention governs restock, weather and lifecycle arithmetic
+  current_default: iso8601 with Monday start, via date.fromisocalendar
+  seam: SEAM-WEEK-CONVENTION
+  location: "time.week_convention \xB7 capability 5.3 weekly index"
+  replacement_entails: "adapter swap \u2014 implement WeekConvention; call sites affected:\
+    \ 0"
+  confirm_with: Rue (Chapter 5)
+  status: Provisional
+  affected_outputs:
+  - quality
+  - inventory
+  - metrics
+  confirmed_by: null
+  confirmed_on: null
+- rep_id: REP-14
+  decision: Which boosting backend builds the horizon ensemble
+  current_default: "sklearn_hgb \u2014 installed on the verified runtime; lightgbm\
+    \ is opt-in"
+  seam: SEAM-MODEL-BACKEND
+  location: "model.backend \xB7 capability 5.9 forecasting"
+  replacement_entails: "adapter swap or configuration only \u2014 install the optional\
+    \ wheel and select lightgbm; call sites affected: 0"
+  confirm_with: Ashley (Chapter 6)
+  status: Provisional
+  affected_outputs:
+  - metrics
+  - main_model
+  confirmed_by: null
+  confirmed_on: null
+- rep_id: REP-15
+  decision: Which observed week the naive baseline repeats
+  current_default: "last_input \u2014 the last week of the input window, never a target\
+    \ week"
+  seam: SEAM-BASELINE-DEF
+  location: "baseline.naive_reference \xB7 capability 5.9 forecasting"
+  replacement_entails: "configuration only \u2014 last_input | mean_input; call sites\
+    \ affected: 0"
+  confirm_with: Linda (Chapter 7)
+  status: Provisional
+  affected_outputs:
+  - metrics
+  confirmed_by: null
+  confirmed_on: null
+- rep_id: REP-16
+  decision: Whether the alternative 4-in/1-out rolling task is exposed
+  current_default: "enabled \u2014 eight rolling evaluation points q1..q4 to q12"
+  seam: SEAM-ALT-TASK
+  location: "tasks.alt_4in1out.enabled \xB7 capability 5.8 features"
+  replacement_entails: "configuration only \u2014 true | false; call sites affected:\
+    \ 0"
+  confirm_with: Ashley (Chapter 6)
+  status: Provisional
+  affected_outputs:
+  - alt_task
+  confirmed_by: null
+  confirmed_on: null
+- rep_id: REP-17
+  decision: Whether negative weekly sales are clipped at zero or retained as returns
+  current_default: clip_at_zero - negative cells are counted first, then set to zero
+  seam: SEAM-NEGATIVE-SALES
+  location: "cleaning.negative_sales_policy \xB7 capability 5.5 cleaning"
+  replacement_entails: 'configuration only - clip_at_zero | retain_as_returns; call
+    sites affected: 0'
+  confirm_with: Rue (Chapter 5)
+  status: Provisional
+  affected_outputs:
+  - quality.negative_cells
+  - inventory.entries
+  - replenishment.reorder_point
+  - metrics
+  confirmed_by: null
+  confirmed_on: null
+  config_keys:
+  - cleaning.negative_sales_policy
+  options:
+  - clip_at_zero
+  - retain_as_returns
+  affected_gates:
+  - B23
+  - B14
+- rep_id: REP-18
+  decision: How the main model is chosen among the declared candidates
+  current_default: min_primary_metric on validation; must_not_be_worse_than_naive;
+    retained_default when none qualifies
+  seam: SEAM-MODEL-SELECTION
+  location: "model.candidates, model.selection_rule, model.selection_metric, model.qualification.*\
+    \ \xB7 capability 5.9 forecasting"
+  replacement_entails: 'configuration only - rule, mode, tolerance or on_none; call
+    sites affected: 0'
+  confirm_with: Linda (Chapter 7)
+  status: Provisional
+  affected_outputs:
+  - selection
+  - metrics
+  - replenishment.recommended_qty
+  - risk
+  confirmed_by: null
+  confirmed_on: null
+  config_keys:
+  - model.candidates
+  - model.selection_rule
+  - model.selection_metric
+  - model.qualification.mode
+  - model.qualification.tolerance
+  - model.qualification.on_none
+  options:
+  - min_primary_metric; must_not_be_worse_than_naive | strictly_better; retained_default
+    | least_bad_provisional | fail_run
+  affected_gates:
+  - B25
+  - B26
+- rep_id: REP-19
+  decision: Which feature families the closed matrix contains
+  current_default: input_window lags and discount lags, item/store input-window aggregates,
+    price x discount, weather as supplied
+  seam: SEAM-FEATURE-SET
+  location: "features.lags, features.history_aggregates, features.price_discount_interaction,\
+    \ features.weather \xB7 capability 5.8 features"
+  replacement_entails: 'configuration or adapter - change the declared families; an
+    undeclared column is an error; call sites affected: 0'
+  confirm_with: Linda (Chapter 7)
+  status: Provisional
+  affected_outputs:
+  - feature_set
+  - metrics
+  confirmed_by: null
+  confirmed_on: null
+  config_keys:
+  - features.lags
+  - features.history_aggregates
+  - features.price_discount_interaction
+  - features.weather
+  options:
+  - input_window
+  - item_mean_input / store_mean_input
+  - price_discount_interaction true|false
+  - as_supplied|off
+  affected_gates:
+  - B26
+  - B24

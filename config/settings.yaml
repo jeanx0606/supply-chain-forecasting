@@ -1,0 +1,140 @@
+data:
+  raw_dir: data/raw
+  files:
+    sales: sales.csv
+    restocks: restocks.csv
+    price_discount: price_discount_series.csv
+    gtrends: vis2_gtrends_data.csv
+    weather: vis2_weather_data.csv
+  n_weeks: 12
+  sales_week_prefix: q
+
+run:
+  seed: 42
+  verbose: true
+
+time:
+  week_convention: iso8601
+
+spine:
+  granularity: item_store
+  input_weeks: 2
+  output_weeks: 10
+
+split:
+  policy: chronological
+  train_ratio: 0.70
+  val_ratio: 0.15
+  test_ratio: 0.15
+  explicit_cut_dates: null
+  use_preset_files: false
+  preset_files:
+    - stfore_train.csv
+    - stfore_test.csv
+  preset_scale_factor: null
+
+model:
+  baseline: seasonal_naive
+  selected: gradient_boosting
+  backend: sklearn_hgb
+  candidates:
+    - seasonal_naive
+    - moving_average
+    - lag_regression
+    - gradient_boosting
+  selection_rule: min_primary_metric
+  selection_metric: wape_item_level
+  qualification:
+    mode: must_not_be_worse_than_naive
+    tolerance: 0.0
+    on_none: retained_default
+  params:
+    max_iter: 120
+    learning_rate: 0.08
+    max_leaf_nodes: 15
+
+baseline:
+  naive_reference: last_input
+
+metrics:
+  primary: wape_item_level
+  supporting:
+    - wape_pooled
+    - mae
+    - rmse
+    - wape_store_weighted
+    - wape_small_stores
+
+channels:
+  weather: consume
+  gtrends: deferred
+
+cleaning:
+  negative_sales_policy: clip_at_zero
+
+features:
+  lags: input_window
+  history_aggregates:
+    - item_mean_input
+    - store_mean_input
+  price_discount_interaction: true
+  weather: as_supplied
+
+report:
+  enabled: true
+  dir: reports
+  format: json+markdown
+  packet_path: docs/DECISION_PACKET.md
+
+preflight:
+  negative_cell_reference: 3386
+
+weather:
+  max_interp_days: 30
+  join_mode: pooled_representative
+  agg:
+    avg_temp: mean
+    min_temp: min
+    max_temp: max
+    dew_point: mean
+    humidity: mean
+    visibility: mean
+    avg_wind: mean
+    max_wind: max
+    gust: max
+    sea_pressure: mean
+    avg_pressure: mean
+    rain: sum
+
+inventory:
+  initial_stock_method: lead_time_demand
+  lead_time_weeks: 1
+  safety_factor: 1.0
+
+truncation:
+  restock_policy: lifecycle_membership
+  restock_date_max: "2019-12-31"
+
+replenish:
+  policy: sS
+  safety_stock_method: normal_approx
+  service_level: 0.95
+  order_cycle_weeks: 1
+  risk_high_weeks: 1
+  risk_medium_weeks: 2
+  overstock_high_ratio: 2.0
+  overstock_medium_ratio: 1.2
+
+demo:
+  selection_rule: max_horizon_demand
+  pin_item: null
+  pin_store: null
+
+tasks:
+  alt_4in1out:
+    enabled: true
+
+output:
+  enabled: true
+  dir: output
+  format: json+csv
