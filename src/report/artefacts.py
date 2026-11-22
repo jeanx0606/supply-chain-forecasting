@@ -62,7 +62,8 @@ class JsonCsvWriter:
 
             metric_rows = list(payload["metrics"].values())
             metric_fields = ["model", "wape_item_level", "wape_pooled", "mae",
-                             "rmse", "wape_store_weighted", "wape_small_stores",
+                             "rmse", "forecast_bias", "forecast_bias_item_level",
+                             "wape_store_weighted", "wape_small_stores",
                              "n_small_stores", "n_evaluated_records",
                              "n_evaluated_series", "unit", "applied_scale_factor",
                              "sign_policy", "partition"]
@@ -72,9 +73,28 @@ class JsonCsvWriter:
             self._write_csv(staging / "inventory.csv", inventory_rows,
                             ["week_no", "restock", "sales", "reconstructed_stock"])
 
+            scenario_rows = (payload.get("scenarios") or {}).get("rows") or []
+            if scenario_rows:
+                self._write_csv(
+                    staging / "scenarios.csv", scenario_rows,
+                    ["scenario", "label", "forecast_source", "sigma_e", "n_pairs",
+                     "orders", "sold_units", "demanded_units", "lost_units",
+                     "supplied_units", "leftover_units", "stockout_weeks",
+                     "store_weeks", "average_on_hand", "fill_rate",
+                     "stockout_rate", "overstock_ratio", "turnover",
+                     "weeks_of_cover", "cost_index"])
+
+            slice_rows = (payload.get("error_slices") or {}).get("slices") or []
+            if slice_rows:
+                self._write_csv(
+                    staging / "error_slices.csv", slice_rows,
+                    ["slice", "group", "basis", "n", "wape", "mae", "rmse",
+                     "bias", "status"])
+
             provenance = payload.get("unit_provenance") or {}
             selection = payload.get("selection") or {}
             feature_set = payload.get("feature_set") or {}
+            error_scale = payload.get("error_scale") or {}
             self._write_json(staging / "run_meta.json", {
                 "run_id": run_id,
                 "register_version": payload["register_version"],
@@ -88,6 +108,10 @@ class JsonCsvWriter:
                 "selection_rule": selection.get("rule_id"),
                 "main_model_status": selection.get("main_model_status"),
                 "feature_set_id": feature_set.get("spec_id"),
+                "sigma_e": error_scale.get("sigma_e"),
+                "sigma_e_partition": error_scale.get("partition"),
+                "sigma_e_unit": error_scale.get("unit"),
+                "sigma_e_by_model": payload.get("error_scale_by_model"),
             })
 
             if target.exists():

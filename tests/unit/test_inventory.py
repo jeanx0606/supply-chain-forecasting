@@ -55,7 +55,7 @@ def test_sellout_onset_is_the_first_crossing():
     class FixedOpening(InitialStockStrategy):
         name = "lead_time_demand"
 
-        def estimate(self, sales_row, events):
+        def estimate(self, sales_row, events, opening=0.0):
             return InitialStockEstimate(10.0, self.name, "assumed opening stock")
 
     sales = pd.Series({f"q{n}": 5.0 for n in range(1, 13)})

@@ -100,7 +100,13 @@ def test_cleaning_section_and_preset_defaults(tmp_path):
     assert cfg.split.preset_scale_factor is None
     assert cfg.split.preset_files == ("stfore_train.csv", "stfore_test.csv")
     assert cfg.model.candidates == ("seasonal_naive", "moving_average",
-                                    "lag_regression", "gradient_boosting")
+                                    "category_curve", "attribute_knn",
+                                    "lag_regression", "lightgbm_horizon",
+                                    "gradient_boosting")
+    assert cfg.inventory.initial_stock_method.value == "restocked_to_release"
+    assert cfg.inventory.opening_stock_alpha == 1.0
+    assert cfg.inventory.negative_correction is True
+    assert cfg.inventory.floor_at_zero is True
     assert cfg.model.qualification.on_none.value == "retained_default"
     assert cfg.features.price_discount_interaction is True
     assert cfg.features.weather.value == "as_supplied"

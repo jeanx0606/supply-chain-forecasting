@@ -390,10 +390,13 @@ def load_config(path: str = "config/settings.yaml", root: str | Path = ".") -> A
         inventory=InventorySection(
             initial_stock_method=_enum(
                 InitialStockMethod, raw["inventory"].get(
-                    "initial_stock_method", "lead_time_demand"),
+                    "initial_stock_method", "restocked_to_release"),
                 "inventory.initial_stock_method"),
             lead_time_weeks=int(raw["inventory"].get("lead_time_weeks", 1)),
             safety_factor=float(raw["inventory"].get("safety_factor", 1.0)),
+            opening_stock_alpha=float(raw["inventory"].get("opening_stock_alpha", 1.0)),
+            negative_correction=bool(raw["inventory"].get("negative_correction", True)),
+            floor_at_zero=bool(raw["inventory"].get("floor_at_zero", True)),
         ),
         truncation=TruncationSection(
             restock_policy=_enum(RestockPolicy, raw["truncation"].get(
@@ -439,6 +442,9 @@ def _validate_inventory(cfg: AppConfig) -> None:
     if cfg.inventory.safety_factor <= 0:
         raise ConfigError("inventory.safety_factor", "must be > 0",
                           observed=cfg.inventory.safety_factor)
+    if cfg.inventory.opening_stock_alpha <= 0:
+        raise ConfigError("inventory.opening_stock_alpha", "must be > 0",
+                          observed=cfg.inventory.opening_stock_alpha)
 
 
 def effective_config_dict(cfg: AppConfig) -> dict:
@@ -519,6 +525,9 @@ def effective_config_dict(cfg: AppConfig) -> dict:
             "initial_stock_method": cfg.inventory.initial_stock_method.value,
             "lead_time_weeks": cfg.inventory.lead_time_weeks,
             "safety_factor": cfg.inventory.safety_factor,
+            "opening_stock_alpha": cfg.inventory.opening_stock_alpha,
+            "negative_correction": cfg.inventory.negative_correction,
+            "floor_at_zero": cfg.inventory.floor_at_zero,
         },
         "truncation": {
             "restock_policy": cfg.truncation.restock_policy.value,

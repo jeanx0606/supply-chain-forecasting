@@ -22,6 +22,7 @@ class ModelBackend(str, Enum):
 class SplitPolicyName(str, Enum):
     CHRONOLOGICAL = "chronological"
     EXPLICIT = "explicit"
+    SEASON = "season"
 
 
 class NaiveReference(str, Enum):
@@ -51,6 +52,7 @@ class WeatherJoinMode(str, Enum):
 
 
 class InitialStockMethod(str, Enum):
+    RESTOCKED_TO_RELEASE = "restocked_to_release"
     LEAD_TIME_DEMAND = "lead_time_demand"
     FIRST_RESTOCK = "first_restock"
     ROLLING_MINIMUM = "rolling_minimum"
@@ -113,7 +115,9 @@ class OutputFormat(str, Enum):
     JSON_CSV = "json+csv"
 
 
-KNOWN_MODELS = ("gradient_boosting", "lag_regression", "moving_average", "seasonal_naive")
+KNOWN_MODELS = ("attribute_knn", "category_curve", "gradient_boosting",
+                "lag_regression", "lightgbm_horizon", "moving_average",
+                "seasonal_naive")
 
 
 @dataclass(frozen=True)
@@ -237,6 +241,9 @@ class InventorySection:
     initial_stock_method: InitialStockMethod
     lead_time_weeks: int
     safety_factor: float
+    opening_stock_alpha: float = 1.0
+    negative_correction: bool = True
+    floor_at_zero: bool = True
 
 
 @dataclass(frozen=True)

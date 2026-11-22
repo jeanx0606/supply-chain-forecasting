@@ -15,6 +15,7 @@ def build_view(bundle) -> dict:
             "wape_pooled": record.wape_pooled,
             "mae": record.mae,
             "rmse": record.rmse,
+            "forecast_bias": getattr(record, "forecast_bias", None),
             "wape_store_weighted": record.wape_store_weighted,
             "wape_small_stores": record.wape_small_stores,
             "n_small_stores": record.n_small_stores,
@@ -38,5 +39,7 @@ def render(bundle) -> None:
                        f"(n={block['n_small_stores']}) [constraint C2]")
         st.caption(f"evaluated records={block['n_evaluated_records']}, "
                    f"item series={block['n_evaluated_series']}")
+        st.caption(f"Forecast bias (mean signed error, forecast - actual): "
+                   f"{fmt_metric(block['forecast_bias'])}")
     st.caption("MAPE is not used as a primary metric: demand is sparse and zero-inflated.")
     constraint_caption("C2")

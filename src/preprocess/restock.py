@@ -1,7 +1,7 @@
 """Restock retention and lifecycle-week attribution (D2, D11, REP-04)."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 
@@ -15,6 +15,7 @@ class RetentionOutcome:
     excluded: dict
     policy_name: str
     restock_date_max_state: dict
+    opening_by_key: dict = field(default_factory=dict)
 
 
 class RestockRetentionPolicy:
@@ -30,7 +31,7 @@ class RestockRetentionPolicy:
         return SeamDescription("restock_trunc", "REP-04", self.policy_name)
 
     def _excluded(self) -> dict:
-        return {"before_release": 0, "after_lifecycle": 0,
+        return {"opening_stock": 0, "after_lifecycle": 0,
                 "calendar_cutoff": 0, "no_matching_record": 0}
 
     def retain(self, events: pd.DataFrame, release_map: dict,
@@ -38,6 +39,7 @@ class RestockRetentionPolicy:
         horizon = int(n_weeks or self.n_weeks)
         excluded = self._excluded()
         grouped: dict = {}
+        opening: dict = {}
         for row in events.itertuples(index=False):
             key = (int(row.external_code), int(row.retail))
             release = release_map.get(key)
@@ -49,15 +51,16 @@ class RestockRetentionPolicy:
                 excluded["calendar_cutoff"] += 1
                 continue
             lifecycle_week = (event_date - release).days // 7 + 1
-            if lifecycle_week < 1:
-                excluded["before_release"] += 1
+            quantity = float(row.qty)
+            if quantity < 0:
+                quantity = 0.0
+            if lifecycle_week <= 1:
+                opening[key] = opening.get(key, 0.0) + quantity
+                excluded["opening_stock"] += 1
                 continue
             if lifecycle_week > horizon:
                 excluded["after_lifecycle"] += 1
                 continue
-            quantity = float(row.qty)
-            if quantity < 0:
-                quantity = 0.0
             grouped.setdefault(key, {})[int(lifecycle_week)] = (
                 grouped.setdefault(key, {}).get(int(lifecycle_week), 0.0) + quantity)
 
@@ -65,7 +68,8 @@ class RestockRetentionPolicy:
                  "value": str(self.cutoff), "state": "inactive_parameter"}
         if self.enabled_cutoff():
             state["state"] = "applied"
-        return RetentionOutcome(grouped, excluded, self.policy_name, state)
+        return RetentionOutcome(grouped, excluded, self.policy_name, state,
+                                opening)
 
     def enabled_cutoff(self) -> bool:
         return False

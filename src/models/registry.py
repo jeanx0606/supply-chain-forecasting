@@ -5,6 +5,7 @@ from ..errors import ConfigError, RegistryError
 from ..seams.protocols import SeamDescription
 from .baseline import BASELINE_CLASSES, BaselineDefinition
 from .boosting import GradientBoostingForecaster
+from .lightgbm_model import LightGBMHorizon
 
 REGISTRY = {}
 
@@ -15,6 +16,7 @@ def register(cls):
 
 
 register(GradientBoostingForecaster)
+register(LightGBMHorizon)
 
 
 def available_models() -> tuple:
@@ -28,10 +30,13 @@ def get_model(name: str, backend=None, seed: int = 42, reference="last_input"):
             setattr(model, "seed", int(seed))
         return model
     if name in REGISTRY:
-        if backend is None:
+        needs_backend = getattr(REGISTRY[name], "requires_backend", True)
+        if backend is None and needs_backend:
             raise ConfigError("model.backend", "backend is required for boosting models",
                               observed=None, expected="a ModelBackend")
-        return REGISTRY[name](backend=backend, seed=seed)
+        if needs_backend:
+            return REGISTRY[name](backend=backend, seed=seed)
+        return REGISTRY[name](seed=seed)
     raise RegistryError(name, available_models())
 
 

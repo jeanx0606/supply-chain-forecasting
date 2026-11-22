@@ -97,9 +97,194 @@ class LagRegression(Forecaster):
         return self._clip(np.column_stack(predictions))
 
 
+ATTRIBUTE_PREFIXES = ("category_", "season_", "color_", "fabric_")
+CATEGORY_PREFIXES = ("category_", "season_")
+
+
+def _attribute_columns(frame, prefixes=ATTRIBUTE_PREFIXES) -> list:
+    return [c for c in frame.columns if str(c).startswith(tuple(prefixes))]
+
+
+def _active_names(values: np.ndarray, columns: list) -> list:
+    rows = np.asarray(values, dtype=float) > 0.5
+    return [tuple(columns[i] for i in np.flatnonzero(row)) for row in rows]
+
+
+def _keys_for(frame, columns) -> list:
+    names = list(columns)
+    if not names:
+        return [()] * len(frame)
+    values = frame.reindex(columns=names, fill_value=0.0).to_numpy(dtype=float)
+    return _active_names(values, names)
+
+
+def _accumulate(keys, targets: np.ndarray, levels: np.ndarray) -> dict:
+    table = {}
+    for key, curve, level in zip(keys, targets, levels):
+        entry = table.get(key)
+        if entry is None:
+            table[key] = [np.asarray(curve, dtype=float), 1, float(level)]
+        else:
+            entry[0] = entry[0] + np.asarray(curve, dtype=float)
+            entry[1] += 1
+            entry[2] += float(level)
+    return {key: {"curve": value[0] / value[1], "count": value[1],
+                  "level": value[2] / value[1]}
+            for key, value in table.items()}
+
+
+class CategoryCurve(Forecaster):
+    """B2: mean past-product curve in the same category/season, scaled to observed weeks.
+
+    Fit reads training targets only; predict reads the input window and attributes.
+    Group hierarchy: (category, season) -> category -> global.
+    """
+
+    name = "category_curve"
+
+    def __init__(self, min_group_size: int = 2, scale_to_observed: bool = True):
+        self.min_group_size = max(1, int(min_group_size))
+        self.scale_to_observed = bool(scale_to_observed)
+        self.out_dim_ = 1
+        self.full_ = {}
+        self.category_ = {}
+        self.global_curve_ = None
+        self.global_level_ = 0.0
+        self.full_columns_ = ()
+        self.category_columns_ = ()
+
+    def fit(self, X, y, **kwargs):
+        frame = pd.DataFrame(X)
+        targets = _as_2d(y)
+        self.out_dim_ = targets.shape[1]
+        levels = _lag_matrix(frame).mean(axis=1)
+        self.full_columns_ = _attribute_columns(frame, CATEGORY_PREFIXES)
+        self.category_columns_ = [c for c in self.full_columns_
+                                  if str(c).startswith("category_")]
+        self.full_ = _accumulate(_keys_for(frame, self.full_columns_), targets, levels)
+        self.category_ = _accumulate(_keys_for(frame, self.category_columns_),
+                                     targets, levels)
+        self.global_curve_ = targets.mean(axis=0)
+        self.global_level_ = float(levels.mean()) if levels.size else 0.0
+        return self
+
+    def _lookup(self, full_key, category_key):
+        entry = self.full_.get(full_key)
+        if entry and entry["count"] >= self.min_group_size:
+            return entry["curve"], entry["level"]
+        entry = self.category_.get(category_key)
+        if entry and entry["count"] >= self.min_group_size:
+            return entry["curve"], entry["level"]
+        return self.global_curve_, self.global_level_
+
+    def predict(self, X) -> np.ndarray:
+        frame = pd.DataFrame(X)
+        levels = _lag_matrix(frame).mean(axis=1)
+        full_keys = _keys_for(frame, self.full_columns_)
+        category_keys = _keys_for(frame, self.category_columns_)
+        rows = []
+        for level, full_key, category_key in zip(levels, full_keys, category_keys):
+            curve, group_level = self._lookup(full_key, category_key)
+            factor = 1.0
+            if self.scale_to_observed and group_level > 0:
+                factor = float(level) / float(group_level)
+            rows.append(np.asarray(curve, dtype=float) * factor)
+        if not rows:
+            return np.zeros((0, self.out_dim_))
+        return self._clip(np.vstack(rows))
+
+
+class AttributeKNN(Forecaster):
+    """B3: average curves of the k nearest past products in attribute space.
+
+    Similarity is Hamming distance over the one-hot attribute columns; neighbour
+    curves are weighted by signature frequency and scaled to observed weeks.
+    """
+
+    name = "attribute_knn"
+
+    def __init__(self, k: int = 5, scale_to_observed: bool = True):
+        self.k = max(1, int(k))
+        self.scale_to_observed = bool(scale_to_observed)
+        self.out_dim_ = 1
+        self.attribute_columns_ = ()
+        self.signatures_ = None
+        self.curves_ = None
+        self.levels_ = None
+        self.counts_ = None
+        self.global_curve_ = None
+        self.global_level_ = 0.0
+
+    def fit(self, X, y, **kwargs):
+        frame = pd.DataFrame(X)
+        targets = _as_2d(y)
+        self.out_dim_ = targets.shape[1]
+        levels = _lag_matrix(frame).mean(axis=1)
+        self.attribute_columns_ = _attribute_columns(frame)
+        keys = _keys_for(frame, self.attribute_columns_)
+        table = _accumulate(keys, targets, levels)
+        names = sorted(table)
+        columns = list(self.attribute_columns_)
+        self.signatures_ = np.array(
+            [[1.0 if column in signature else 0.0 for column in columns]
+             for signature in names], dtype=float).reshape(len(names), len(columns))
+        self.curves_ = np.vstack([table[name]["curve"] for name in names])
+        self.levels_ = np.array([table[name]["level"] for name in names], dtype=float)
+        self.counts_ = np.array([table[name]["count"] for name in names], dtype=float)
+        self.global_curve_ = targets.mean(axis=0)
+        self.global_level_ = float(levels.mean()) if levels.size else 0.0
+        return self
+
+    def _distance(self, queried: np.ndarray) -> np.ndarray:
+        train = self.signatures_
+        product = queried @ train.T
+        distance = (queried.sum(axis=1)[:, None] + train.sum(axis=1)[None, :]
+                    - 2.0 * product)
+        return np.clip(distance, 0.0, None)
+
+    def _neighbour_table(self, signatures) -> dict:
+        unique = sorted(set(signatures))
+        columns = list(self.attribute_columns_)
+        queried = np.array(
+            [[1.0 if column in signature else 0.0 for column in columns]
+             for signature in unique], dtype=float).reshape(len(unique), len(columns))
+        distance = self._distance(queried)
+        k = min(self.k, len(self.counts_))
+        table = {}
+        for position, signature in enumerate(unique):
+            nearest = np.argsort(distance[position], kind="stable")[:k]
+            weights = self.counts_[nearest]
+            total = float(weights.sum())
+            curve = (self.curves_[nearest] * weights[:, None]).sum(axis=0) / total
+            level = float((self.levels_[nearest] * weights).sum() / total)
+            table[signature] = (curve, level)
+        return table
+
+    def predict(self, X) -> np.ndarray:
+        frame = pd.DataFrame(X)
+        levels = _lag_matrix(frame).mean(axis=1)
+        if self.global_curve_ is None:
+            raise ValueError("attribute_knn is not fitted")
+        signatures = _keys_for(frame, self.attribute_columns_)
+        table = self._neighbour_table(signatures) if self.counts_ is not None else {}
+        rows = []
+        for signature, level in zip(signatures, levels):
+            curve, neighbour_level = table.get(
+                signature, (self.global_curve_, self.global_level_))
+            factor = 1.0
+            if self.scale_to_observed and neighbour_level > 0:
+                factor = float(level) / float(neighbour_level)
+            rows.append(np.asarray(curve, dtype=float) * factor)
+        if not rows:
+            return np.zeros((0, self.out_dim_))
+        return self._clip(np.vstack(rows))
+
+
 BASELINE_CLASSES = {
     SeasonalNaive.name: SeasonalNaive,
     MovingAverage.name: MovingAverage,
+    CategoryCurve.name: CategoryCurve,
+    AttributeKNN.name: AttributeKNN,
     LagRegression.name: LagRegression,
 }
 
@@ -120,6 +305,10 @@ class BaselineDefinition:
             return SeasonalNaive(self.reference)
         if name == MovingAverage.name:
             return MovingAverage()
+        if name == CategoryCurve.name:
+            return CategoryCurve()
+        if name == AttributeKNN.name:
+            return AttributeKNN()
         if name == LagRegression.name:
             return LagRegression()
         raise KeyError(name)

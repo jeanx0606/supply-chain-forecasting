@@ -85,8 +85,14 @@ def test_same_seed_reproduces_identical_arrays():
     assert np.array_equal(first, second)
 
 
-def test_lightgbm_is_lazy_and_actionable():
-    assert "lightgbm" not in sys.modules
+def test_lightgbm_backend_builds_now_that_the_wheel_is_present():
+    backend = make_backend("lightgbm", {"max_iter": 10}, 42)
+    ensemble = backend.make_ensemble(3)
+    assert ensemble.horizon == 3
+
+
+def test_lightgbm_absence_is_still_reported_with_an_action(monkeypatch):
+    monkeypatch.setitem(sys.modules, "lightgbm", None)
     backend = make_backend("lightgbm", {}, 42)
     with pytest.raises(StageError) as info:
         backend.make_ensemble(10)

@@ -69,7 +69,8 @@ def build_seams(cfg: AppConfig) -> SeamBundle:
     from ..preprocess.inventory import make_initial_stock_strategy
     from ..preprocess.restock import make_retention_policy
     from ..preprocess.spine import ItemStoreGrain
-    from ..preprocess.split import ChronologicalSplit, PresetSplitPolicy
+    from ..preprocess.split import (ChronologicalSplit, PresetSplitPolicy,
+                                    SeasonSplit)
     from ..preprocess.weather import make_weather_join
     from ..replenish.demo import make_demo_selector
     from ..replenish.safety import make_safety_stock
@@ -82,13 +83,16 @@ def build_seams(cfg: AppConfig) -> SeamBundle:
         raise ConfigError("spine.granularity", "unsupported grain", observed=permissive.spine.granularity.value,
                           expected=Granularity.ITEM_STORE.value)
 
-    split = ChronologicalSplit(
-        train_ratio=permissive.split.train_ratio,
-        val_ratio=permissive.split.val_ratio,
-        test_ratio=permissive.split.test_ratio,
-        explicit_cut_dates=permissive.split.explicit_cut_dates,
-        policy=permissive.split.policy,
-    )
+    if permissive.split.policy.value == "season":
+        split = SeasonSplit()
+    else:
+        split = ChronologicalSplit(
+            train_ratio=permissive.split.train_ratio,
+            val_ratio=permissive.split.val_ratio,
+            test_ratio=permissive.split.test_ratio,
+            explicit_cut_dates=permissive.split.explicit_cut_dates,
+            policy=permissive.split.policy,
+        )
 
     return SeamBundle(
         split=split,
@@ -108,7 +112,8 @@ def build_seams(cfg: AppConfig) -> SeamBundle:
         initial_stock=make_initial_stock_strategy(
             permissive.inventory.initial_stock_method,
             permissive.inventory.lead_time_weeks,
-            permissive.inventory.safety_factor),
+            permissive.inventory.safety_factor,
+            permissive.inventory.opening_stock_alpha),
         weather_join=make_weather_join(permissive.weather.join_mode),
         trends=TrendsPolicy(permissive.channels.gtrends),
         safety_stock=make_safety_stock(permissive.replenish.safety_stock_method,

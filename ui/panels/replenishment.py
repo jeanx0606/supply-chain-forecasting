@@ -26,10 +26,13 @@ def build_view(bundle) -> dict:
         "service_level_applied": assumptions.service_level_applied,
         "scope_note": assumptions.scope_note,
         "assumed_statement": assumptions.assumed_statement,
+        "protection_weeks": assumptions.protection_weeks,
+        "simulation_label": assumptions.simulation_label,
         "baseline_target": baseline.target_level,
         "baseline_qty": baseline.recommended_qty,
         "baseline_weeks": baseline.target_weeks,
         "caption": recommendation.quantity_vs_timing_caption,
+        "scenarios": bundle.scenarios,
     }
 
 
@@ -41,6 +44,10 @@ def assumption_rows(view: dict) -> pd.DataFrame:
          "status": "assumed"},
         {"parameter": "service_level", "value": view["service_level"],
          "status": "applied" if view["service_level_applied"] else "out of scope"},
+        {"parameter": "protection_period_P", "value": view["protection_weeks"],
+         "status": "L + R"},
+        {"parameter": "simulation_label", "value": view["simulation_label"],
+         "status": "label"},
     ])
 
 
@@ -68,4 +75,25 @@ def render(bundle) -> None:
     st.write(f"Fixed cycle / fixed level over {view['baseline_weeks']} weeks: "
              f"target {view['baseline_target']:.2f}, quantity {view['baseline_qty']:,}")
     st.caption(view["caption"])
+    st.caption(f"All replenishment figures are a {view['simulation_label']}; "
+               f"buffer uses sigma_e over P = L + R = {view['protection_weeks']} week(s)")
+
+    scenarios = view.get("scenarios") or {}
+    scenario_rows = scenarios.get("rows") or []
+    if scenario_rows:
+        settings = scenarios.get("settings") or {}
+        st.subheader("Scenario ladder (main setting)")
+        table = pd.DataFrame([
+            {"scenario": row["scenario"],
+             "forecast": row["forecast_source"],
+             "fill rate": row["fill_rate"],
+             "stock-out rate": row["stockout_rate"],
+             "overstock ratio": row["overstock_ratio"]}
+            for row in scenario_rows])
+        st.dataframe(table, hide_index=True, width="stretch")
+        st.caption(f"L={settings.get('lead_time_weeks')}, "
+                   f"R={settings.get('order_cycle_weeks')}, "
+                   f"z={settings.get('service_level')}, "
+                   f"P={settings.get('protection_weeks')}; cost index: "
+                   f"{scenarios.get('cost_index_reason')}")
     constraint_caption("C5")

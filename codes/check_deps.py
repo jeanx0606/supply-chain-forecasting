@@ -17,7 +17,8 @@ PACKAGE_ALIASES = {
     "altair": "altair",
 }
 
-OPTIONAL = {"lightgbm": "install only if model.backend=lightgbm"}
+OPTIONAL = {"lightgbm": "install when model.backend=lightgbm or the "
+                         "lightgbm_horizon candidate is enabled"}
 
 SCAN_DIRS = ("src", "ui", "codes", "tests")
 
@@ -62,7 +63,7 @@ def check() -> list:
     declared_packages = declared()
     used, optional = imported()
 
-    for package in sorted(declared_packages - used):
+    for package in sorted(declared_packages - used - optional):
         problems.append(f"declared but never imported: {package}")
     for package in sorted(used - declared_packages):
         problems.append(f"imported but not declared in requirements.txt: {package}")

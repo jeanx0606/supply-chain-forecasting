@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from ..seams.protocols import SeamDescription
-from .metrics import mae, rmse, wape
+from .metrics import bias, mae, rmse, wape
 
 DEFAULT_SUPPORTING = ("wape_pooled", "mae", "rmse",
                       "wape_store_weighted", "wape_small_stores")
@@ -20,6 +20,8 @@ class MetricRecord:
     wape_pooled: float | None
     mae: float | None
     rmse: float | None
+    forecast_bias: float | None
+    forecast_bias_item_level: float | None
     wape_store_weighted: float | None
     wape_small_stores: float | None
     n_small_stores: int | None
@@ -70,6 +72,8 @@ class StandardMetricSet:
             "wape_pooled": wape(actual, predicted),
             "mae": mae(actual, predicted),
             "rmse": rmse(actual, predicted),
+            "forecast_bias": bias(actual, predicted),
+            "forecast_bias_item_level": None,
             "wape_store_weighted": None,
             "wape_small_stores": None,
             "n_small_stores": None,
@@ -100,6 +104,7 @@ class StandardMetricSet:
                 item_actual = np.array([actual[idx].sum(axis=0) for idx in rows])
                 item_pred = np.array([predicted[idx].sum(axis=0) for idx in rows])
                 record["wape_item_level"] = wape(item_actual, item_pred)
+                record["forecast_bias_item_level"] = bias(item_actual, item_pred)
                 record["n_evaluated_series"] = int(len(rows))
 
         if "retail" in frame.columns:

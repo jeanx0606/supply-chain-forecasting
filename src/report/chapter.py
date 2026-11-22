@@ -41,21 +41,86 @@ def build_pack(bundle: dict) -> dict:
     risk = bundle.get("risk", {})
     selection = bundle.get("selection", {})
     feature_set = bundle.get("feature_set", {})
+    initial = inventory.get("initial_stock") or {}
+    reconstruction = inventory.get("reconstruction") or {}
+    reconstruction_policy = reconstruction.get("policy") or {}
+    replenish_assumptions = replenishment.get("assumptions") or {}
+    error_scale = bundle.get("error_scale") or {}
+    scale_units = {"mae": unit, "rmse": unit, "forecast_bias": unit,
+                   "forecast_bias_item_level": unit}
+    assumptions = bundle.get("assumptions") or []
+    scenario_payload = bundle.get("scenarios") or {}
+    scenario_rows = scenario_payload.get("rows") or []
+    scenario_settings = scenario_payload.get("settings") or {}
+    scenario_missing = [row.get("scenario") for row in
+                        scenario_payload.get("unavailable") or []]
+    slice_payload = bundle.get("error_slices") or {}
+    slice_rows = slice_payload.get("slices") or []
+    worst_groups = slice_payload.get("worst_groups") or []
+    worst_group = (f"{worst_groups[0].get('slice')}:{worst_groups[0].get('group')}"
+                   if worst_groups else "n/a")
+    split_payload = bundle.get("split", {})
+    split_counts = split_payload.get("counts") or {}
+    split_preset = split_payload.get("preset") or {}
 
     figures = [
         _figure("quality.n_rows", quality.get("n_rows"), "count"),
         _figure("quality.negative_cells", quality.get("negative_cells"), "count"),
         _figure("quality.pair_coverage", rounded(quality.get("pair_coverage")), "ratio"),
-        _figure("split.counts", bundle.get("split", {}).get("counts"), "count"),
+        _figure("split.method", split_payload.get("method"), "name"),
+        _figure("split.counts.train", split_counts.get("train"), "count"),
+        _figure("split.counts.validation", split_counts.get("validation"), "count"),
+        _figure("split.counts.test", split_counts.get("test"), "count"),
+        _figure("split.preset.statement", split_preset.get("statement"), "name"),
         _figure("feature_set.n_columns", feature_set.get("n_columns"), "count"),
         _figure("selection.chosen_model", selection.get("chosen_model"), "name"),
         _figure("selection.outcome", selection.get("outcome"), "name"),
+        _figure("model.sigma_e", rounded(error_scale.get("sigma_e")),
+                error_scale.get("unit", unit),
+                partition=error_scale.get("partition", "validation")),
+        _figure("assumptions.count", len(assumptions), "count"),
+        _figure("assumptions.open_decisions",
+                ",".join(row.get("id", "") for row in assumptions
+                         if row.get("status") != "encoded"), "name"),
+        _figure("scenario.count", len(scenario_rows), "count"),
+        _figure("scenario.service_level",
+                rounded(scenario_settings.get("service_level"), 2), "ratio"),
+        _figure("scenario.cost_index_status",
+                scenario_settings.get("cost_index_reason"), "name"),
+        _figure("scenario.unavailable", ",".join(scenario_missing) or "none", "name"),
+        _figure("error_slice.reported_count", slice_payload.get("reported_count"),
+                "count"),
+        _figure("error_slice.min_slice_size",
+                slice_payload.get("min_slice_size"), "count"),
+        _figure("error_slice.worst_group", worst_group, "name"),
+        _figure("error_slice.unavailable",
+                ",".join(row.get("slice", "") for row in
+                         slice_payload.get("unavailable") or []), "name"),
         _figure("replenishment.reorder_point",
                 rounded(replenishment.get("reorder_point")), unit),
         _figure("replenishment.target_level",
                 rounded(replenishment.get("target_level")), unit),
         _figure("replenishment.recommended_qty",
                 replenishment.get("recommended_qty"), unit),
+        _figure("replenishment.protection_weeks",
+                replenish_assumptions.get("protection_weeks"), "week"),
+        _figure("replenishment.simulation_label",
+                replenish_assumptions.get("simulation_label"), "name"),
+        _figure("inventory.initial_stock", rounded(initial.get("value")), unit),
+        _figure("inventory.initial_stock_base", rounded(initial.get("base_value")), unit),
+        _figure("inventory.initial_stock_correction",
+                rounded(initial.get("correction")), unit),
+        _figure("inventory.would_go_negative",
+                reconstruction.get("would_go_negative"), "flag"),
+        _figure("inventory.min_raw_stock", rounded(reconstruction.get("min_raw_stock")),
+                unit),
+        _figure("inventory.negative_weeks", reconstruction.get("negative_weeks"), "week"),
+        _figure("reconstruction.alpha",
+                rounded(reconstruction_policy.get("alpha"), 2), "ratio"),
+        _figure("reconstruction.floor_at_zero",
+                reconstruction_policy.get("a1_floor_at_zero"), "flag"),
+        _figure("reconstruction.a3_negative_correction",
+                reconstruction_policy.get("a3_negative_correction"), "flag"),
         _figure("inventory.sellout_week", inventory.get("sellout_week"), "week"),
         _figure("risk.stockout_proxy", risk.get("stockout_proxy"), "grade"),
         _figure("risk.overstock", risk.get("overstock"), "grade"),
@@ -63,10 +128,35 @@ def build_pack(bundle: dict) -> dict:
         _figure("unit_provenance.sign_policy", sign, "name"),
     ]
     for name, record in metrics.items():
-        for metric_id in ("wape_item_level", "wape_pooled", "mae", "rmse"):
+        for metric_id in ("wape_item_level", "wape_pooled", "mae", "rmse",
+                          "forecast_bias", "forecast_bias_item_level"):
             figures.append(_figure(
-                f"metric.{metric_id}", rounded(record.get(metric_id)), "ratio",
+                f"metric.{metric_id}", rounded(record.get(metric_id)),
+                scale_units.get(metric_id, "ratio"),
                 partition=f"test:{name}"))
+    for name, record in (bundle.get("error_scale_by_model") or {}).items():
+        figures.append(_figure(
+            "model.sigma_e", rounded(record.get("sigma_e")),
+            record.get("unit", unit), partition=f"validation:{name}"))
+    for row in scenario_rows:
+        partition = f"test:{row.get('scenario')}"
+        for figure_id, key, figure_unit in (
+                ("scenario.fill_rate", "fill_rate", "ratio"),
+                ("scenario.stockout_rate", "stockout_rate", "ratio"),
+                ("scenario.overstock_ratio", "overstock_ratio", "ratio"),
+                ("scenario.turnover", "turnover", "ratio"),
+                ("scenario.weeks_of_cover", "weeks_of_cover", "week")):
+            figures.append(_figure(figure_id, rounded(row.get(key)),
+                                   figure_unit, partition=partition))
+    for row in slice_rows:
+        partition = f"test:{row.get('slice')}:{row.get('group')}"
+        for figure_id, key, figure_unit in (
+                ("error_slice.wape", "wape", "ratio"),
+                ("error_slice.mae", "mae", unit),
+                ("error_slice.rmse", "rmse", unit),
+                ("error_slice.bias", "bias", unit)):
+            figures.append(_figure(figure_id, rounded(row.get(key)),
+                                   figure_unit, partition=partition))
 
     return {
         "label": "chapter figure pack",

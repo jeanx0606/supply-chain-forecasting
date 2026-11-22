@@ -34,12 +34,23 @@ def test_week_after_lifecycle_excluded_and_counted():
     assert outcome.excluded["after_lifecycle"] == 1
 
 
-def test_before_release_excluded():
+def test_pre_release_restock_becomes_opening_stock():
     release = date(2019, 3, 4)
     week = IsoWeek.from_date(release - timedelta(weeks=2))
     event = events([(1, 2, week.week, week.year, 5)])
     outcome = RestockRetentionPolicy(n_weeks=12).retain(event, {(1, 2): release})
-    assert outcome.excluded["before_release"] == 1
+    assert outcome.opening_by_key[(1, 2)] == 5.0
+    assert outcome.excluded["opening_stock"] == 1
+    assert (1, 2) not in outcome.events_by_key
+
+
+def test_release_week_restock_joins_the_opening_stock():
+    release = date(2019, 3, 4)
+    week = IsoWeek.from_date(release)
+    event = events([(1, 2, week.week, week.year, 7)])
+    outcome = RestockRetentionPolicy(n_weeks=12).retain(event, {(1, 2): release})
+    assert outcome.opening_by_key[(1, 2)] == 7.0
+    assert (1, 2) not in outcome.events_by_key
 
 
 def test_no_matching_record_counted():

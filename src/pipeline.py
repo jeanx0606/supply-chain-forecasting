@@ -8,7 +8,9 @@ import numpy as np
 from .config import ConfigLedger, effective_config_dict, load_config
 from .errors import StageError
 from .evaluate.aggregate import evaluate_split
+from .evaluate.error_scale import measure as measure_error_scale
 from .evaluate.secondary import compare_on_preset
+from .evaluate.slices import error_slices
 from .features.build import TaskDataset, build_task
 from .features.tasks import alt_task_summary
 from .io.channels import probe_channels
@@ -18,14 +20,17 @@ from .io.unit_contract import RAW_UNIT
 from .models.registry import get_model
 from .models.selection import SelectionGuard
 from .preprocess.cleaning import clean_sales, quality_report
-from .preprocess.inventory import build_trajectory
+from .preprocess.inventory import ReconstructionPolicy, build_trajectory
 from .preprocess.restock import make_retention_policy
 from .preprocess.time_index import (attach_week_index, check_window,
                                     monday_violations, window_summary)
 from .preprocess.weather import interpolate_localities, to_weekly
 from .replenish.demo import DemoCandidate
 from .replenish.policy import (ReplenishmentContext, recommend, recommend_baseline)
+from .replenish.scenario import (ScenarioPair, ScenarioSettings, ladder_payload,
+                                 run_ladder)
 from .replenish.risk import assess
+from .report.assumptions import as_dicts as assumption_records
 from .report.bundle import (QualityReport, ResultBundle, SplitProvenance,
                              UnitProvenance)
 from .report.provisional import load_register, provisional_refs, register_version
@@ -40,6 +45,24 @@ STAGES = (
 SAMPLE_NEXT = "python -m codes.sample_data"
 
 
+def _weekly_sales(row, n_weeks: int) -> tuple:
+    values = []
+    for week in range(1, int(n_weeks) + 1):
+        value = row.get(f"q{week}", 0.0)
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            value = 0.0
+        if value != value:
+            value = 0.0
+        values.append(value)
+    return tuple(values)
+
+
+def _fmt(value, digits: int = 3) -> str:
+    return "n/a" if value is None else f"{value:.{digits}f}"
+
+
 def _consume_ledger(cfg, ledger: ConfigLedger) -> None:
     ledger.consume(
         "run.seed", "run.verbose", "time.week_convention", "spine.granularity",
@@ -50,6 +73,8 @@ def _consume_ledger(cfg, ledger: ConfigLedger) -> None:
         "metrics.primary", "metrics.supporting", "channels.weather",
         "channels.gtrends", "weather.join_mode", "inventory.initial_stock_method",
         "inventory.lead_time_weeks", "inventory.safety_factor",
+        "inventory.opening_stock_alpha", "inventory.negative_correction",
+        "inventory.floor_at_zero",
         "truncation.restock_policy", "truncation.restock_date_max",
         "replenish.policy", "replenish.safety_stock_method",
         "replenish.service_level", "replenish.order_cycle_weeks",
@@ -163,7 +188,7 @@ def run(cfg, verbose: bool | None = None) -> ResultBundle:
         f"targets={main_task.horizon}, alt_points={len(alt_points)}")
 
     # ---- S8 split -----------------------------------------------------
-    assignment = seams.split.resolve(frame["release_date"])
+    assignment = seams.split.resolve(frame["release_date"], frame.get("season"))
     preset_provenance = seams.preset.provenance(preset_present)
     train_mask = assignment.train.to_numpy()
     test_mask = assignment.test.to_numpy()
@@ -189,13 +214,15 @@ def run(cfg, verbose: bool | None = None) -> ResultBundle:
     model_candidates = list(cfg.model.candidates)
     fitted_train = {}
     figures = []
+    validation_predictions = {}
     for name in model_candidates:
         model = get_model(name, seams.backend, cfg.run.seed,
                           cfg.baseline.naive_reference)
         model.fit(X_train, y_train)
         fitted_train[name] = model
+        validation_predictions[name] = model.predict(X_val)
         figures.append(seams.selection_policy.score_validation(
-            model.predict(X_val), y_val, meta_val, seams.metrics, name))
+            validation_predictions[name], y_val, meta_val, seams.metrics, name))
     decision = seams.selection_policy.choose(figures, model_candidates,
                                              cfg.model.selected)
     union_mask = train_mask | validation_mask
@@ -222,6 +249,13 @@ def run(cfg, verbose: bool | None = None) -> ResultBundle:
                 for name in model_candidates}
     say(f"[S9] candidates={len(model_candidates)}; chosen={main_model}; "
         f"outcome={decision.outcome}")
+    error_scale = measure_error_scale(
+        y_val, validation_predictions[decision.chosen_model])
+    error_scale_by_model = {
+        name: measure_error_scale(y_val, prediction).as_dict()
+        for name, prediction in validation_predictions.items()}
+    say(f"[S9] sigma_e={error_scale.sigma_e:.4f} (validation, "
+        f"n={error_scale.n_observations})")
 
     # ---- S10 evaluate --------------------------------------------------
     register = load_register(cfg.root / "config/replaceability.yaml")
@@ -236,8 +270,76 @@ def run(cfg, verbose: bool | None = None) -> ResultBundle:
             sign_policy=sign.policy_name, partition="test")
     say(f"[S10] { {n: round(m.wape_item_level, 4) if m.wape_item_level is not None else None for n, m in metrics.items()} }")
 
+    # ---- S10a error slices (Record D) ----------------------------------
+    test_positions = np.flatnonzero(test_mask)
+    error_slice_payload = error_slices(
+        y_test, predictions[main_model], X_test,
+        frame.iloc[test_positions], meta_test)
+    worst = error_slice_payload["worst_groups"]
+    if worst:
+        worst_note = (f"{worst[0]['slice']}:{worst[0]['group']} "
+                      f"(WAPE {worst[0]['wape']:.3f})")
+    else:
+        worst_note = "n/a"
+    say(f"[S10a] slices={len(error_slice_payload['slices'])} "
+        f"reported={error_slice_payload['reported_count']} worst={worst_note}")
+
+    # ---- S10b scenario ladder (main setting only) ----------------------
+    reconstruction = ReconstructionPolicy(
+        alpha=cfg.inventory.opening_stock_alpha,
+        negative_correction=cfg.inventory.negative_correction,
+        floor_at_zero=cfg.inventory.floor_at_zero)
+    ladder_pairs = []
+    for index, position in enumerate(test_positions):
+        key = (int(meta_test.loc[index, "external_code"]),
+               int(meta_test.loc[index, "retail"]))
+        pair_row = frame.iloc[int(position)]
+        pair_events = outcome.events_by_key.get(key, {})
+        pair_opening = outcome.opening_by_key.get(key, 0.0)
+        pair_trajectory = build_trajectory(
+            pair_row, pair_events, seams.initial_stock, cfg.data.n_weeks,
+            key=key, opening=pair_opening, policy=reconstruction)
+        ladder_pairs.append(ScenarioPair(
+            key=key, sales=_weekly_sales(pair_row, cfg.data.n_weeks),
+            restocks=dict(pair_events),
+            opening=float(pair_trajectory.initial_stock.value)))
+
+    naive_model = {"last_input": "seasonal_naive",
+                   "mean_input": "moving_average"}[cfg.baseline.naive_reference.value]
+    forecast_sources = {}
+    if naive_model in predictions:
+        forecast_sources["R1"] = (f"{naive_model} (B0/B1 naive)",
+                                  predictions[naive_model])
+    if "category_curve" in predictions:
+        forecast_sources["R2"] = ("category_curve (B2)",
+                                  predictions["category_curve"])
+    if main_model in predictions:
+        forecast_sources["R3"] = (f"{main_model} (chosen)", predictions[main_model])
+    forecast_sources["R4"] = ("actual future sales (perfect foresight)", y_test)
+    sigma_by_scenario = {
+        "R1": float(error_scale_by_model.get(naive_model, {}).get("sigma_e", 0.0)),
+        "R2": float(error_scale_by_model.get("category_curve", {}).get("sigma_e", 0.0)),
+        "R3": float(error_scale.sigma_e),
+        "R4": 0.0,
+    }
+    ladder_settings = ScenarioSettings(
+        lead_time_weeks=cfg.inventory.lead_time_weeks,
+        order_cycle_weeks=cfg.replenish.order_cycle_weeks,
+        service_level=cfg.replenish.service_level,
+        n_weeks=cfg.data.n_weeks,
+        forecast_origin_week=int(main_task.origin_week))
+    scenarios = ladder_payload(
+        run_ladder(ladder_pairs, ladder_settings, forecast_sources,
+                   sigma_by_scenario),
+        ladder_settings, forecast_sources)
+    say("[S10b] " + ", ".join(
+        f"{row['scenario']}: fill={_fmt(row['fill_rate'])} "
+        f"stockout={_fmt(row['stockout_rate'])} "
+        f"overstock={_fmt(row['overstock_ratio'])}"
+        for row in scenarios["rows"]))
+
     # ---- S11 inventory --------------------------------------------------
-    positions = np.flatnonzero(test_mask)
+    positions = test_positions
     candidates = [
         DemoCandidate(key=(int(meta_test.loc[i, "external_code"]),
                            int(meta_test.loc[i, "retail"])),
@@ -247,17 +349,21 @@ def run(cfg, verbose: bool | None = None) -> ResultBundle:
     demo = seams.demo.select(candidates)
     demo_row = frame.iloc[demo.row_index]
     events = outcome.events_by_key.get(demo.key, {})
+    opening = outcome.opening_by_key.get(demo.key, 0.0)
     trajectory = build_trajectory(demo_row, events, seams.initial_stock,
-                                  cfg.data.n_weeks, key=demo.key)
+                                  cfg.data.n_weeks, key=demo.key,
+                                  opening=opening, policy=reconstruction)
     say(f"[S11] demo={demo.key}, I0={trajectory.initial_stock.value:.2f} "
-        f"({trajectory.initial_stock.strategy_name}), sellout={trajectory.sellout_week}")
+        f"({trajectory.initial_stock.strategy_name}, opening={opening:.2f}, "
+        f"A3+={trajectory.opening_stock_correction:.2f}), "
+        f"sellout={trajectory.sellout_week}")
 
     # ---- S12 recommend and grade ---------------------------------------
     decision_week = int(cfg.spine.input_weeks)
     snapshot = trajectory.at(decision_week)
     local_index = candidates.index(demo)
     demand_slice = np.asarray(predictions[main_model][local_index], dtype=float)
-    variability = float(np.std(y_train)) if y_train.size else None
+    variability = float(error_scale.sigma_e)
 
     context = ReplenishmentContext(
         key=demo.key, decision_week=decision_week,
@@ -352,6 +458,11 @@ def run(cfg, verbose: bool | None = None) -> ResultBundle:
         secondary_comparison=None,
         feature_set=main_task.feature_set.as_dict()
         if main_task.feature_set else None,
+        error_scale=error_scale.as_dict(),
+        error_scale_by_model=error_scale_by_model,
+        assumptions=assumption_records(),
+        scenarios=scenarios,
+        error_slices=error_slice_payload,
         selection=selection_record,
         conditional=conditional,
         main_model_status=main_model_status,

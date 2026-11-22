@@ -25,6 +25,7 @@ class SafetyStockResult:
     method: str
     service_level_applied: bool
     scope_note: str
+    protection_weeks: int = 1
 
 
 class SafetyStockPolicyBase:
@@ -52,11 +53,14 @@ class NormalApproxSafetyStock(SafetyStockPolicyBase):
         if variability is None:
             variability = _residual_std(ctx.demand_slice)
         z_value = NormalDist().inv_cdf(self.service_level)
-        buffer = max(0.0, z_value * float(variability) * np.sqrt(max(ctx.lead_time_weeks, 1)))
+        protection = max(int(ctx.lead_time_weeks) + int(ctx.order_cycle_weeks), 1)
+        buffer = max(0.0, z_value * float(variability) * np.sqrt(protection))
         return SafetyStockResult(
             quantity=float(buffer), method=self.method,
             service_level_applied=True,
-            scope_note=f"service level {self.service_level:.2f} applied (REP-10)",
+            scope_note=(f"service level {self.service_level:.2f} applied over "
+                        f"protection period P={protection} week(s) (REP-10)"),
+            protection_weeks=protection,
         )
 
 
@@ -70,6 +74,8 @@ class ZeroSafetyStock(SafetyStockPolicyBase):
             quantity=0.0, method=self.method,
             service_level_applied=False,
             scope_note="service level OUT OF SCOPE (REP-10)",
+            protection_weeks=max(int(ctx.lead_time_weeks)
+                                 + int(ctx.order_cycle_weeks), 1),
         )
 
 

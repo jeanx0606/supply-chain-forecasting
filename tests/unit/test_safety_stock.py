@@ -22,6 +22,19 @@ def test_higher_service_level_never_lowers_the_buffer():
     assert high.quantity >= low.quantity > 0
 
 
+def test_buffer_uses_the_protection_period_lead_plus_cycle():
+    from statistics import NormalDist
+
+    ctx = DemandContext(demand_slice=(5.0,) * 10, lead_time_weeks=2,
+                        order_cycle_weeks=1, service_level=0.95,
+                        variability=3.0)
+    result = make_safety_stock("normal_approx", 0.95).compute(ctx)
+    expected = NormalDist().inv_cdf(0.95) * 3.0 * (3.0 ** 0.5)
+    assert result.quantity == pytest.approx(expected)
+    assert result.protection_weeks == 3
+    assert "P=3" in result.scope_note
+
+
 def test_zero_method_declares_service_level_out_of_scope():
     result = make_safety_stock("none", 0.95).compute(context())
     assert result.quantity == 0.0

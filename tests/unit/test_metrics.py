@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from src.evaluate.aggregate import StandardMetricSet
-from src.evaluate.metrics import mae, rmse, wape
+from src.evaluate.metrics import bias, mae, rmse, wape
 
 
 def test_wape_perfect_and_zero_denominator():
@@ -65,3 +66,20 @@ def test_primary_comes_from_the_seam():
     seam = StandardMetricSet(primary="wape_pooled")
     assert seam.describe().rep_id == "REP-03"
     assert seam.primary == "wape_pooled"
+
+
+def test_forecast_bias_is_mean_signed_error_in_raw_units():
+    actual = np.array([[2.0, 4.0], [6.0, 8.0]])
+    assert bias(actual, actual + 1.0) == pytest.approx(1.0)
+    assert bias(actual, actual - 2.0) == pytest.approx(-2.0)
+    assert bias([], []) is None
+
+
+def test_record_carries_pooled_and_item_level_bias():
+    actual = np.array([[1.0], [2.0], [100.0]])
+    predicted = np.array([[0.0], [0.0], [100.0]])
+    meta = pd.DataFrame({"external_code": [1, 1, 2], "retail": [10, 11, 10]})
+    record = StandardMetricSet().evaluate(actual, predicted, meta, "m")
+    assert record.forecast_bias == pytest.approx(-1.0)
+    assert record.forecast_bias_item_level == pytest.approx(-1.5)
+    assert "forecast_bias" in record.as_dict()

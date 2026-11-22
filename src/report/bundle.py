@@ -91,6 +91,7 @@ MANDATORY_MEMBERS = (
     "replenishment", "replenishment_baseline", "risk", "channels", "seams",
     "provisional", "available_models", "self_test", "unit_provenance",
     "register_version", "feature_set", "selection", "conditional",
+    "scenarios", "error_scale", "error_slices",
 )
 
 
@@ -121,6 +122,11 @@ class ResultBundle:
     register_version: int | None = None
     secondary_comparison: dict | None = None
     feature_set: dict | None = None
+    error_scale: dict | None = None
+    error_scale_by_model: dict | None = None
+    assumptions: list | None = None
+    scenarios: dict | None = None
+    error_slices: dict | None = None
     selection: dict | None = None
     conditional: dict | None = None
     main_model_status: str = "configured"
@@ -179,11 +185,21 @@ class ResultBundle:
                     "strategy_name": self.demonstration.initial_stock.strategy_name,
                     "assumption_note": self.demonstration.initial_stock.assumption_note,
                     "rep_id": self.demonstration.initial_stock.rep_id,
+                    "base_value": self.demonstration.initial_stock.base_value,
+                    "correction": self.demonstration.initial_stock.correction,
                 },
                 "sellout_week": self.demonstration.sellout_week,
                 "remaining_weeks_after_sellout":
                     self.demonstration.remaining_weeks_after_sellout,
                 "reconstruction_marker": self.demonstration.reconstruction_marker,
+                "reconstruction": {
+                    "policy": self.demonstration.policy,
+                    "opening_stock_correction":
+                        self.demonstration.opening_stock_correction,
+                    "min_raw_stock": self.demonstration.min_raw_stock,
+                    "negative_weeks": self.demonstration.negative_weeks,
+                    "would_go_negative": self.demonstration.would_go_negative,
+                },
             },
             "replenishment": self.replenishment.as_dict(),
             "replenishment_baseline": self.replenishment_baseline.as_dict(),
@@ -211,6 +227,11 @@ class ResultBundle:
             "register_version": self.register_version,
             "secondary_comparison": self.secondary_comparison,
             "feature_set": self.feature_set,
+            "error_scale": self.error_scale,
+            "error_scale_by_model": self.error_scale_by_model,
+            "assumptions": self.assumptions,
+            "scenarios": self.scenarios,
+            "error_slices": self.error_slices,
             "selection": self.selection,
             "conditional": self.conditional,
             "main_model_status": self.main_model_status,

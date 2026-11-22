@@ -4,8 +4,8 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from src.errors import StageError
-from src.preprocess.split import ChronologicalSplit, PresetSplitPolicy
+from src.errors import ConfigError, StageError
+from src.preprocess.split import ChronologicalSplit, PresetSplitPolicy, SeasonSplit
 
 
 def splitter(**kwargs):
@@ -99,3 +99,47 @@ def test_presence_on_disk_never_changes_the_partition():
     second = splitter().resolve(dates)
     assert first.counts == second.counts
     assert first.cut_train_end == second.cut_train_end
+
+
+def test_season_split_maps_the_confirmed_partitions():
+    seasons = pd.Series(["SS17", "AW17", "SS18", "AW18", "SS19", "AW18",
+                         "AW19", "AW19"])
+    dates = pd.Series(pd.date_range("2017-01-02", periods=8, freq="W-MON"))
+    assignment = SeasonSplit().resolve(dates, seasons)
+    assert assignment.method == "season"
+    assert assignment.counts == {"train": 5, "validation": 1, "test": 2}
+    assert assignment.train.tolist() == [True, True, True, True, False,
+                                         True, False, False]
+    assert sum(assignment.counts.values()) == 8
+
+
+def test_season_split_needs_the_season_column():
+    dates = pd.Series(pd.date_range("2017-01-02", periods=3, freq="W-MON"))
+    with pytest.raises(ConfigError) as info:
+        SeasonSplit().resolve(dates)
+    assert "season column" in str(info.value)
+
+
+def test_season_split_rejects_an_unknown_label():
+    seasons = pd.Series(["SS17", "AW17", "ZZ20"])
+    dates = pd.Series(pd.date_range("2017-01-02", periods=3, freq="W-MON"))
+    with pytest.raises(ConfigError) as info:
+        SeasonSplit().resolve(dates, seasons)
+    assert "unknown season label" in str(info.value)
+
+
+def test_season_split_refuses_an_empty_partition():
+    seasons = pd.Series(["AW19", "AW19", "AW19"])
+    dates = pd.Series(pd.date_range("2019-08-05", periods=3, freq="W-MON"))
+    with pytest.raises(StageError) as info:
+        SeasonSplit().resolve(dates, seasons)
+    assert "train partition is empty" in str(info.value)
+
+
+def test_chronological_method_is_a_plain_label_from_the_enum():
+    from src.config.schema import SplitPolicyName
+    from src.preprocess.split import ChronologicalSplit as Policy
+
+    dates = pd.Series(pd.date_range("2019-01-07", periods=20, freq="W-MON"))
+    assignment = Policy(0.7, 0.15, 0.15, policy=SplitPolicyName.CHRONOLOGICAL).resolve(dates)
+    assert assignment.method == "chronological"

@@ -8,6 +8,7 @@ import pandas as pd
 
 from ..errors import ConfigError, StageError
 from ..seams.protocols import SeamDescription
+from .expected_counts import EXPECTED_SEASON_SPLIT
 
 
 @dataclass(frozen=True)
@@ -56,7 +57,7 @@ class ChronologicalSplit:
     def describe(self) -> SeamDescription:
         return SeamDescription("split_cut", "REP-01", str(self.policy))
 
-    def resolve(self, release_dates: pd.Series) -> SplitAssignment:
+    def resolve(self, release_dates: pd.Series, seasons=None) -> SplitAssignment:
         dates = pd.to_datetime(release_dates)
         uniq = np.sort(dates.dropna().unique())
         if len(uniq) < 3:
@@ -92,8 +93,66 @@ class ChronologicalSplit:
             test=test,
             cut_train_end=str(pd.Timestamp(cut_train).date()),
             cut_validation_end=str(pd.Timestamp(cut_val).date()),
-            method=str(self.policy),
+            method=str(getattr(self.policy, "value", self.policy)),
             counts={"train": int(train.sum()), "validation": int(validation.sum()),
+                    "test": int(test.sum())},
+        )
+
+
+class SeasonSplit:
+    """Season partition (the chapter's main split): SS17-AW18 / SS19 / AW19.
+
+    Opt-in: `split.policy: season`. The default stays chronological because the
+    prototype run is a stated deviation while Chapter 7 quotes the season split.
+    """
+
+    def __init__(self, train_seasons=None, validation_seasons=None,
+                 test_seasons=None):
+        self.train_seasons = tuple(train_seasons or EXPECTED_SEASON_SPLIT["train"])
+        self.validation_seasons = tuple(validation_seasons
+                                        or EXPECTED_SEASON_SPLIT["validation"])
+        self.test_seasons = tuple(test_seasons or EXPECTED_SEASON_SPLIT["test"])
+
+    def describe(self) -> SeamDescription:
+        return SeamDescription("split_cut", "REP-01", "season")
+
+    def resolve(self, release_dates: pd.Series, seasons=None) -> SplitAssignment:
+        if seasons is None:
+            raise ConfigError(
+                "split.policy",
+                "the season split needs the season column; chronological is the default",
+                observed=None, expected="a season label per row")
+        dates = pd.to_datetime(release_dates)
+        labels = pd.Series(seasons, index=release_dates.index)
+        labels = labels.where(labels.notna(), "unknown").astype(str)
+        expected = set(self.train_seasons) | set(self.validation_seasons) | set(self.test_seasons)
+        unknown = sorted(set(labels) - expected)
+        if unknown:
+            raise ConfigError("split.policy", "unknown season label",
+                              observed=unknown[0], expected=sorted(expected))
+
+        train = labels.isin(self.train_seasons)
+        validation = labels.isin(self.validation_seasons)
+        test = labels.isin(self.test_seasons)
+        for name, mask in (("train", train), ("validation", validation),
+                           ("test", test)):
+            if not mask.any():
+                raise StageError(
+                    "split", f"{name} partition is empty - check the season map",
+                    next_command="python -m codes.sample_data --overwrite")
+
+        cut_train = dates[train].max()
+        cut_val = dates[validation].max()
+        if pd.isna(cut_train) or pd.isna(cut_val):
+            raise StageError("split", "season partition carries no usable release date")
+
+        return SplitAssignment(
+            train=train, validation=validation, test=test,
+            cut_train_end=str(pd.Timestamp(cut_train).date()),
+            cut_validation_end=str(pd.Timestamp(cut_val).date()),
+            method="season",
+            counts={"train": int(train.sum()),
+                    "validation": int(validation.sum()),
                     "test": int(test.sum())},
         )
 
