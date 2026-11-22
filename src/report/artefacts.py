@@ -91,6 +91,10 @@ class JsonCsvWriter:
                     ["slice", "group", "basis", "n", "wape", "mae", "rmse",
                      "bias", "status"])
 
+            if payload.get("reconstruction_audit"):
+                self._write_json(staging / "reconstruction_audit.json",
+                                 payload["reconstruction_audit"])
+
             provenance = payload.get("unit_provenance") or {}
             selection = payload.get("selection") or {}
             feature_set = payload.get("feature_set") or {}

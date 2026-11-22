@@ -27,6 +27,7 @@ def build_view(bundle) -> dict:
         "scope_note": assumptions.scope_note,
         "assumed_statement": assumptions.assumed_statement,
         "protection_weeks": assumptions.protection_weeks,
+        "z_value": assumptions.z_value,
         "simulation_label": assumptions.simulation_label,
         "baseline_target": baseline.target_level,
         "baseline_qty": baseline.recommended_qty,
@@ -76,7 +77,9 @@ def render(bundle) -> None:
              f"target {view['baseline_target']:.2f}, quantity {view['baseline_qty']:,}")
     st.caption(view["caption"])
     st.caption(f"All replenishment figures are a {view['simulation_label']}; "
-               f"buffer uses sigma_e over P = L + R = {view['protection_weeks']} week(s)")
+               f"buffer uses sigma_e (validation-season forecast-error standard "
+               f"deviation) over P = L + R = {view['protection_weeks']} week(s), "
+               f"z = {view.get('z_value')}")
 
     scenarios = view.get("scenarios") or {}
     scenario_rows = scenarios.get("rows") or []

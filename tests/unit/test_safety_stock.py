@@ -32,6 +32,7 @@ def test_buffer_uses_the_protection_period_lead_plus_cycle():
     expected = NormalDist().inv_cdf(0.95) * 3.0 * (3.0 ** 0.5)
     assert result.quantity == pytest.approx(expected)
     assert result.protection_weeks == 3
+    assert result.z_value == pytest.approx(NormalDist().inv_cdf(0.95))
     assert "P=3" in result.scope_note
 
 

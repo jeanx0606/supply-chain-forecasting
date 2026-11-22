@@ -16,7 +16,7 @@ SALES_CONTRACT = ChannelContract(
     name="sales",
     required=("external_code", "retail", "release_date"),
     week_columns=12,
-    optional=("season", "category", "color", "fabric", "image_path", "restock"),
+    optional=("season", "category", "color", "fabric", "restock"),
 )
 
 RESTOCK_CONTRACT = ChannelContract(

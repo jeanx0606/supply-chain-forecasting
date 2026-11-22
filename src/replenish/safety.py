@@ -26,6 +26,7 @@ class SafetyStockResult:
     service_level_applied: bool
     scope_note: str
     protection_weeks: int = 1
+    z_value: float | None = None
 
 
 class SafetyStockPolicyBase:
@@ -61,6 +62,7 @@ class NormalApproxSafetyStock(SafetyStockPolicyBase):
             scope_note=(f"service level {self.service_level:.2f} applied over "
                         f"protection period P={protection} week(s) (REP-10)"),
             protection_weeks=protection,
+            z_value=float(z_value),
         )
 
 
@@ -76,6 +78,7 @@ class ZeroSafetyStock(SafetyStockPolicyBase):
             scope_note="service level OUT OF SCOPE (REP-10)",
             protection_weeks=max(int(ctx.lead_time_weeks)
                                  + int(ctx.order_cycle_weeks), 1),
+            z_value=None,
         )
 
 

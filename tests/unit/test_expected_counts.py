@@ -9,7 +9,7 @@ import pytest
 from src.preprocess.expected_counts import (
     ATTRIBUTE_DIMENSIONS,
     AW19_PAIRS,
-    EXPECTED_A4_NEGATIVE_OVERLAP,
+    EXPECTED_A4_PAIRS_REQUIRING_A3,
     EXPECTED_A4_PAIRS,
     EXPECTED_NEGATIVE_CELLS,
     EXPECTED_NEGATIVE_PAIRS,
@@ -66,8 +66,10 @@ def test_stockout_and_negative_counts_are_recorded():
     assert EXPECTED_NEGATIVE_PAIRS == 1842
     assert EXPECTED_A4_PAIRS == 112
     assert EXPECTED_NEGATIVE_PAIRS_WITH_A4 == 1953
-    assert EXPECTED_A4_NEGATIVE_OVERLAP == 1
+    assert EXPECTED_A4_PAIRS_REQUIRING_A3 == 111
     assert a4_inclusive_negative_pairs() == EXPECTED_NEGATIVE_PAIRS_WITH_A4
+    assert EXPECTED_NEGATIVE_PAIRS + EXPECTED_A4_PAIRS_REQUIRING_A3 == 1953
+    assert EXPECTED_A4_PAIRS == 112
 
 
 def test_negative_rates_match_the_recorded_percentages():
@@ -148,3 +150,4 @@ def test_real_dataset_reconciles_every_signed_figure():
     assert audit.zero_or_below_pairs == EXPECTED_STOCKOUT_PAIRS
     assert audit.negative_pairs == EXPECTED_NEGATIVE_PAIRS_WITH_A4
     assert audit.negative_pairs_excluding_a4 == EXPECTED_NEGATIVE_PAIRS
+    assert audit.a4_pairs_requiring_a3 == EXPECTED_A4_PAIRS_REQUIRING_A3

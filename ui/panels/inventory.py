@@ -24,6 +24,7 @@ def build_view(bundle) -> dict:
         "would_go_negative": trajectory.would_go_negative,
         "min_raw": trajectory.min_raw_stock,
         "negative_weeks": trajectory.negative_weeks,
+        "audit": bundle.reconstruction_audit,
     }
 
 
@@ -52,4 +53,15 @@ def render(bundle) -> None:
     st.warning("Reconstructed inventory: derived from restock minus sales, not an "
                "observed stock series. The absolute level is uncertain; only the "
                "trajectory is observable. [constraint C3]")
+    audit = view.get("audit") or {}
+    declared = audit.get("declared") or {}
+    if declared:
+        st.caption(
+            f"A3-on reporting (declared, real data): "
+            f"{declared.get('pairs_negative_excluding_a4')} pairs negative excluding "
+            f"A4 vs {declared.get('pairs_negative_including_a4')} including "
+            f"{declared.get('a4_pairs_requiring_a3')} of {declared.get('a4_pairs')} "
+            f"A4 pairs. Measured on this run: "
+            f"{audit.get('negative_pairs_excluding_a4')} vs "
+            f"{audit.get('negative_pairs_including_a4')}.")
     constraint_caption("C3")

@@ -5,9 +5,10 @@ on the sample dataset and must not be reported as measured output. The guarded
 test at the bottom of ``tests/unit/test_expected_counts.py`` reconciles all of
 them once the real five-file dataset is placed in ``data/raw``.
 
-One arithmetic note stays visible rather than smoothed: 1,842 non-A4 negative
-pairs plus 112 A4 pairs is 1,954, while the reported A4-inclusive count is 1,953.
-``EXPECTED_A4_NEGATIVE_OVERLAP`` records that one A4 pair is not negative.
+One arithmetic note stays visible rather than smoothed: of the 112 A4 pairs, **111
+also required the A3 correction**, so 1,842 non-A4 negative pairs + 111 = 1,953.
+The 112th A4 pair never went negative, which is why the A4-inclusive count is 1,953
+and not 1,954. ``EXPECTED_A4_PAIRS_REQUIRING_A3`` records the 111 explicitly.
 """
 from __future__ import annotations
 
@@ -31,7 +32,7 @@ EXPECTED_NEGATIVE_RATE = 0.017
 EXPECTED_NEGATIVE_PAIRS_WITH_A4 = 1953
 EXPECTED_NEGATIVE_RATE_WITH_A4 = 0.018
 EXPECTED_A4_PAIRS = 112
-EXPECTED_A4_NEGATIVE_OVERLAP = 1
+EXPECTED_A4_PAIRS_REQUIRING_A3 = 111
 
 LAST_SS19_RELEASE = "2019-08-05"
 LATE_AW19_PAIRS = 19134
@@ -120,8 +121,7 @@ def trends_feature_count() -> int:
 
 
 def a4_inclusive_negative_pairs() -> int:
-    return (EXPECTED_NEGATIVE_PAIRS + EXPECTED_A4_PAIRS
-            - EXPECTED_A4_NEGATIVE_OVERLAP)
+    return EXPECTED_NEGATIVE_PAIRS + EXPECTED_A4_PAIRS_REQUIRING_A3
 
 
 def is_real_dataset(raw_dir) -> bool:

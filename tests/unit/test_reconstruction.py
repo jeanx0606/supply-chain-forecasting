@@ -120,5 +120,6 @@ def test_audit_counts_stockout_and_negative_pairs_before_a3():
     assert audit.opening_zero_pairs == 1
     assert audit.negative_pairs == 3
     assert audit.negative_pairs_excluding_a4 == 2
+    assert audit.a4_pairs_requiring_a3 == 1
     assert audit.zero_or_below_pairs == 3
     assert audit.correction_total > 0

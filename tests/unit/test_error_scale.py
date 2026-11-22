@@ -8,7 +8,7 @@ from src.errors import StageError
 from src.evaluate.error_scale import ErrorScale, measure, sigma_e
 
 
-def test_constant_error_has_zero_spread():
+def test_constant_error_has_zero_standard_deviation():
     actual = np.full((5, 10), 7.0)
     predicted = np.full((5, 10), 4.0)
     assert sigma_e(actual, predicted) == 0.0

@@ -283,14 +283,18 @@ class ReconstructionAudit:
     zero_or_below_pairs: int
     negative_pairs: int
     negative_pairs_excluding_a4: int
+    a4_pairs_requiring_a3: int
     correction_total: float
     min_raw_stock: float
 
     def as_dict(self) -> dict:
         return {"pairs": int(self.pairs),
+                "a4_pairs": int(self.opening_zero_pairs),
                 "a4_opening_zero_pairs": int(self.opening_zero_pairs),
+                "a4_pairs_requiring_a3": int(self.a4_pairs_requiring_a3),
                 "zero_or_below_pairs": int(self.zero_or_below_pairs),
                 "negative_pairs": int(self.negative_pairs),
+                "negative_pairs_including_a4": int(self.negative_pairs),
                 "negative_pairs_excluding_a4": int(self.negative_pairs_excluding_a4),
                 "a3_correction_total": float(self.correction_total),
                 "min_raw_stock": float(self.min_raw_stock)}
@@ -305,6 +309,7 @@ def audit_reconstruction(frame, events_by_key: dict, opening_by_key: dict,
     zero_or_below = 0
     negative = 0
     negative_no_a4 = 0
+    a4_requiring = 0
     correction_total = 0.0
     worst = 0.0
     for row in frame.itertuples(index=False):
@@ -322,11 +327,13 @@ def audit_reconstruction(frame, events_by_key: dict, opening_by_key: dict,
             negative += 1
             if opening > 0:
                 negative_no_a4 += 1
+            else:
+                a4_requiring += 1
         correction_total += max(0.0, -min(window))
         worst = min(worst, min(window))
     return ReconstructionAudit(pairs, opening_zero, zero_or_below, negative,
-                               negative_no_a4, round(correction_total, 6),
-                               round(worst, 6))
+                               negative_no_a4, a4_requiring,
+                               round(correction_total, 6), round(worst, 6))
 
 
 def initial_stock_value(strategy: InitialStockStrategy, sales_row, events,

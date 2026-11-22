@@ -4,5 +4,12 @@
   "items": 200,
   "stores": 20,
   "self_test_only": true,
-  "notice": "[sample] SAMPLE DATA - SELF-TEST ONLY. Figures derived from it must never be reported as results."
+  "notice": "[sample] SAMPLE DATA - SELF-TEST ONLY. Figures derived from it must never be reported as results.",
+  "files": {
+    "sales.csv": "cf1c37b7d35f4c0094d75832b1176a489dbb6e5114d5743ce005134a3a004b1f",
+    "restocks.csv": "ea9ef14f4e226984f533508691de90a414c278de26ea9f7c8e6e2416617f162e",
+    "price_discount_series.csv": "708830c96fbb1aaa46c29df299c8bfd2a5532397bf462fcbe075a6da98401033",
+    "vis2_gtrends_data.csv": "37bed535c243c34f17c5772c5634a6930068ae5e0f6439e8fecb7687dfadaed4",
+    "vis2_weather_data.csv": "56cbd86f762219fba55b8936a3d51749c5d51e87919e11d376f5dd4c528d868a"
+  }
 }

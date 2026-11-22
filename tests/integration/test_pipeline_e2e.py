@@ -68,6 +68,17 @@ def test_season_split_configuration_runs_end_to_end(sample_dataset):
     assert bundle.scenarios["settings"]["forecast_origin_week"] == 2
 
 
+def test_bundle_publishes_the_a3_audit(sample_bundle):
+    audit = sample_bundle.reconstruction_audit
+    assert audit["reported_a3_configuration"] == "on"
+    assert audit["definition"].startswith("stock <= 0 in weeks 0-11")
+    assert audit["declared"]["pairs_negative_excluding_a4"] == 1842
+    assert audit["declared"]["pairs_negative_including_a4"] == 1953
+    assert audit["declared"]["a4_pairs"] == 112
+    assert audit["declared"]["a4_pairs_requiring_a3"] == 111
+    assert audit["a4_pairs"] >= audit["a4_pairs_requiring_a3"]
+
+
 def test_bundle_carries_error_slices(sample_bundle):
     payload = sample_bundle.error_slices
     assert payload is not None

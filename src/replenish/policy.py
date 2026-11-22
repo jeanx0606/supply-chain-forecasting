@@ -28,6 +28,7 @@ class AssumptionBlock:
     scope_note: str
     assumed_statement: str
     protection_weeks: int = 1
+    z_value: float | None = None
     simulation_label: str = "simulation under stated assumptions"
 
 
@@ -61,6 +62,7 @@ class ReplenishmentRecommendation:
                 "scope_note": self.assumptions.scope_note,
                 "assumed_statement": self.assumptions.assumed_statement,
                 "protection_weeks": self.assumptions.protection_weeks,
+                "z_value": self.assumptions.z_value,
                 "simulation_label": self.assumptions.simulation_label,
             },
             "forecast_unavailable": self.forecast_unavailable,
@@ -113,6 +115,7 @@ def recommend(ctx: ReplenishmentContext, safety: SafetyStockPolicyBase,
         assumed_statement=("lead time, service level and order cycle are ASSUMED - "
                            "no order dates, lead times or costs exist in the data (C5)"),
         protection_weeks=buffer.protection_weeks,
+        z_value=buffer.z_value,
     )
     return ReplenishmentRecommendation(
         reorder_point=round(reorder_point, 4),

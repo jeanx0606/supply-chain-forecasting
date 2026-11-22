@@ -91,7 +91,7 @@ MANDATORY_MEMBERS = (
     "replenishment", "replenishment_baseline", "risk", "channels", "seams",
     "provisional", "available_models", "self_test", "unit_provenance",
     "register_version", "feature_set", "selection", "conditional",
-    "scenarios", "error_scale", "error_slices",
+    "scenarios", "error_scale", "error_slices", "reconstruction_audit",
 )
 
 
@@ -127,6 +127,7 @@ class ResultBundle:
     assumptions: list | None = None
     scenarios: dict | None = None
     error_slices: dict | None = None
+    reconstruction_audit: dict | None = None
     selection: dict | None = None
     conditional: dict | None = None
     main_model_status: str = "configured"
@@ -232,6 +233,7 @@ class ResultBundle:
             "assumptions": self.assumptions,
             "scenarios": self.scenarios,
             "error_slices": self.error_slices,
+            "reconstruction_audit": self.reconstruction_audit,
             "selection": self.selection,
             "conditional": self.conditional,
             "main_model_status": self.main_model_status,

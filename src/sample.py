@@ -61,7 +61,6 @@ def make_sample_data(out_dir: str | Path = "data/raw", n_items: int = 200,
                 "category": str(rng.choice(categories)),
                 "color": str(rng.choice(colors)),
                 "fabric": str(rng.choice(fabrics)),
-                "image_path": f"img/{item}.jpg",
                 "release_date": pd.Timestamp(release).strftime("%Y-%m-%d"),
                 "restock": int(weekly.sum() * rng.uniform(0.3, 0.8)),
             }

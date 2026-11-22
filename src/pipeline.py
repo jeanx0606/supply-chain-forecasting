@@ -20,7 +20,13 @@ from .io.unit_contract import RAW_UNIT
 from .models.registry import get_model
 from .models.selection import SelectionGuard
 from .preprocess.cleaning import clean_sales, quality_report
-from .preprocess.inventory import ReconstructionPolicy, build_trajectory
+from .preprocess.inventory import (ReconstructionPolicy, audit_reconstruction,
+                                    build_trajectory)
+from .preprocess.expected_counts import (EXPECTED_A4_PAIRS,
+                                         EXPECTED_A4_PAIRS_REQUIRING_A3,
+                                         EXPECTED_NEGATIVE_PAIRS,
+                                         EXPECTED_NEGATIVE_PAIRS_WITH_A4,
+                                         EXPECTED_STOCKOUT_PAIRS)
 from .preprocess.restock import make_retention_policy
 from .preprocess.time_index import (attach_week_index, check_window,
                                     monday_violations, window_summary)
@@ -159,6 +165,39 @@ def run(cfg, verbose: bool | None = None) -> ResultBundle:
     say(f"[S5] policy={outcome.policy_name}, excluded={outcome.excluded}, "
         f"{outcome.restock_date_max_state['parameter']}={outcome.restock_date_max_state['state']}")
 
+    # ---- S5b reconstruction audit (A3-on only, both figures) -----------
+    reconstruction = ReconstructionPolicy(
+        alpha=cfg.inventory.opening_stock_alpha,
+        negative_correction=cfg.inventory.negative_correction,
+        floor_at_zero=cfg.inventory.floor_at_zero)
+    audit = audit_reconstruction(
+        frame, outcome.events_by_key, outcome.opening_by_key,
+        seams.initial_stock, cfg.data.n_weeks)
+    reconstruction_audit = {
+        **audit.as_dict(),
+        "a3_switch": "on" if cfg.inventory.negative_correction else "off",
+        "reported_a3_configuration": "on",
+        "alpha": float(cfg.inventory.opening_stock_alpha),
+        "definition": ("stock <= 0 in weeks 0-11 before the A3 adjustment; "
+                       "the reported configuration is A3-on"),
+        "partitions": "all cleaned pairs",
+        "declared": {
+            "pairs_negative_excluding_a4": EXPECTED_NEGATIVE_PAIRS,
+            "pairs_negative_including_a4": EXPECTED_NEGATIVE_PAIRS_WITH_A4,
+            "a4_pairs": EXPECTED_A4_PAIRS,
+            "a4_pairs_requiring_a3": EXPECTED_A4_PAIRS_REQUIRING_A3,
+            "pairs_zero_or_below": EXPECTED_STOCKOUT_PAIRS,
+            "source": ("declared by Rue against the cleaned data; the real "
+                       "dataset is not present in this run"),
+        },
+    }
+    say(f"[S5b] pairs={reconstruction_audit['pairs']} "
+        f"zero<=0={reconstruction_audit['zero_or_below_pairs']} "
+        f"neg_exA4={reconstruction_audit['negative_pairs_excluding_a4']} "
+        f"neg_inclA4={reconstruction_audit['negative_pairs_including_a4']} "
+        f"A4={reconstruction_audit['a4_pairs']} "
+        f"A4&A3={reconstruction_audit['a4_pairs_requiring_a3']} (A3-on only)")
+
     # ---- S6 weather ---------------------------------------------------
     wx_path = raw / names.weather
     if getattr(cfg.channels.weather, "value", cfg.channels.weather) == "consume" and wx_path.exists():
@@ -285,10 +324,6 @@ def run(cfg, verbose: bool | None = None) -> ResultBundle:
         f"reported={error_slice_payload['reported_count']} worst={worst_note}")
 
     # ---- S10b scenario ladder (main setting only) ----------------------
-    reconstruction = ReconstructionPolicy(
-        alpha=cfg.inventory.opening_stock_alpha,
-        negative_correction=cfg.inventory.negative_correction,
-        floor_at_zero=cfg.inventory.floor_at_zero)
     ladder_pairs = []
     for index, position in enumerate(test_positions):
         key = (int(meta_test.loc[index, "external_code"]),
@@ -463,6 +498,7 @@ def run(cfg, verbose: bool | None = None) -> ResultBundle:
         assumptions=assumption_records(),
         scenarios=scenarios,
         error_slices=error_slice_payload,
+        reconstruction_audit=reconstruction_audit,
         selection=selection_record,
         conditional=conditional,
         main_model_status=main_model_status,

@@ -119,6 +119,39 @@ def test_error_slice_figures_trace_to_the_bundle(sample_bundle):
     assert by_key[("error_slice.min_slice_size", "")]["value"] == 10
 
 
+def test_a3_audit_distinguishes_the_two_negative_counts(sample_bundle):
+    bundle = sample_bundle.to_dict()
+    pack = build_pack(bundle)
+    by_key = {(figure["figure"], figure["partition"]): figure
+              for figure in pack["figures"]}
+    declared = bundle["reconstruction_audit"]["declared"]
+    assert declared["pairs_negative_excluding_a4"] == 1842
+    assert declared["pairs_negative_including_a4"] == 1953
+    assert declared["a4_pairs"] == 112
+    assert declared["a4_pairs_requiring_a3"] == 111
+    assert by_key[("reconstruction.declared.negative_excluding_a4",
+                   "declared:real_data")]["value"] == 1842
+    assert by_key[("reconstruction.declared.negative_including_a4",
+                   "declared:real_data")]["value"] == 1953
+    assert by_key[("reconstruction.declared.a4_pairs_requiring_a3",
+                   "declared:real_data")]["value"] == 111
+    assert by_key[("reconstruction.reported_a3_configuration", "")]["value"] == "on"
+    measured = bundle["reconstruction_audit"]
+    assert by_key[("reconstruction.audit.negative_excluding_a4",
+                   "all_pairs")]["value"] == measured["negative_pairs_excluding_a4"]
+
+
+def test_sigma_e_is_named_a_standard_deviation(sample_bundle):
+    bundle = sample_bundle.to_dict()
+    definition = bundle["error_scale"]["definition"].lower()
+    assert "standard deviation" in definition
+    assert "spread" not in definition
+    pack = build_pack(bundle)
+    by_id = {figure["figure"]: figure for figure in pack["figures"]}
+    assert "standard deviation" in by_id["model.sigma_e_definition"]["value"].lower()
+    assert by_id["replenishment.z_value"]["value"] == pytest.approx(1.645, abs=1e-3)
+
+
 def test_split_figures_name_the_partition(sample_bundle):
     bundle = sample_bundle.to_dict()
     pack = build_pack(bundle)
