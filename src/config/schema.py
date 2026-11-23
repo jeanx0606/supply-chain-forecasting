@@ -83,6 +83,7 @@ class SelectionRuleName(StrEnum):
 
 class QualificationMode(StrEnum):
     MUST_NOT_BE_WORSE_THAN_NAIVE = "must_not_be_worse_than_naive"
+    MUST_NOT_BE_WORSE_THAN_REFERENCE = "must_not_be_worse_than_reference"
     STRICTLY_BETTER = "strictly_better"
 
 

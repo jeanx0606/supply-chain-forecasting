@@ -39,6 +39,13 @@ LATE_AW19_PAIRS = 19134
 AW19_PAIRS = 24643
 LATE_AW19_SHARE = 0.776
 
+# Chapter 5 §5.2 / §5.3 and Chapter 6 §6.9. The zero-sales share is a pre-cleaning
+# fact (cleaning clips 3,386 negatives to zero, which raises the cleaned share).
+ZERO_SALES_SHARE = 0.373
+MEDIAN_SELL_THROUGH = 0.71
+ZERO_SALES_WITH_ZERO_STOCK_SHARE = 0.03
+A2_FIRST_STOCKED_BEFORE_RELEASE_SHARE = 0.78
+
 ATTRIBUTE_DIMENSIONS = {"category": 27, "color": 10, "fabric": 59}
 TRENDS_TOTAL_TERMS = 96
 TRENDS_DROPPED_TERMS = ("polyviscous", "muslin cotton or silk",

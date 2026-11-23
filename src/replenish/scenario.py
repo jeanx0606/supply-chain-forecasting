@@ -27,7 +27,8 @@ SCENARIO_LABELS = {
 }
 FORECAST_SCENARIOS = ("R1", "R2", "R3", "R4")
 SIMULATION_LABEL = "simulation under stated assumptions"
-COST_INDEX_REASON = "cost ratio cu:co is a §7.7 grid value, not yet locked"
+COST_INDEX_REASON = ("Chapter 7 §7.7 / Table 7.2 fixes equal 1:1 costs; the prototype "
+                     "ladder reports scenario metrics only, so the index is not recomputed")
 
 
 @dataclass(frozen=True)

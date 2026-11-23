@@ -5,6 +5,8 @@ __pycache__/
 venv/
 .env
 data/raw/*.csv
+data/cleaned/
+data/handoff/
 output/*/
 !output/.gitkeep
 reports/

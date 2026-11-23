@@ -48,7 +48,7 @@ model:
   selection_rule: min_primary_metric
   selection_metric: wape_item_level
   qualification:
-    mode: must_not_be_worse_than_naive
+    mode: must_not_be_worse_than_reference
     tolerance: 0.0
     on_none: retained_default
   params:

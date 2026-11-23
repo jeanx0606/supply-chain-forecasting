@@ -17,6 +17,8 @@ def test_qualification_truth_table():
     assert qualifies(0.10, 0.20, "must_not_be_worse_than_naive") is True
     assert qualifies(0.20, 0.20, "must_not_be_worse_than_naive") is True
     assert qualifies(0.21, 0.20, "must_not_be_worse_than_naive") is False
+    assert qualifies(0.10, 0.20, "must_not_be_worse_than_reference") is True
+    assert qualifies(0.21, 0.20, "must_not_be_worse_than_reference") is False
     assert qualifies(0.20, 0.20, "strictly_better") is False
     assert qualifies(0.19, 0.20, "strictly_better") is True
     assert qualifies(None, 0.20, "strictly_better") is False
@@ -25,20 +27,31 @@ def test_qualification_truth_table():
 
 
 def test_choose_picks_the_lowest_validation_figure():
-    figures = [figure("seasonal_naive", 0.30), figure("moving_average", 0.12),
-               figure("gradient_boosting", 0.40)]
+    figures = [figure("seasonal_naive", 0.30), figure("category_curve", 0.20),
+               figure("moving_average", 0.12), figure("gradient_boosting", 0.40)]
     decision = choose(figures, default_model="gradient_boosting",
-                      candidates=["seasonal_naive", "moving_average",
+                      candidates=["seasonal_naive", "category_curve", "moving_average",
                                   "gradient_boosting"])
     assert decision.chosen_model == "moving_average"
+    assert decision.outcome == "qualified"
+    assert decision.reference.candidate == "category_curve"
+
+
+def test_the_qualification_reference_is_b2():
+    figures = [figure("seasonal_naive", 0.10), figure("category_curve", 0.20),
+               figure("moving_average", 0.25)]
+    decision = choose(figures, default_model="gradient_boosting",
+                      candidates=["seasonal_naive", "category_curve", "moving_average"])
+    assert decision.reference.candidate == "category_curve"
+    assert decision.chosen_model == "seasonal_naive"
     assert decision.outcome == "qualified"
 
 
 def test_tie_is_recorded_and_broken_by_declared_order():
-    figures = [figure("seasonal_naive", 0.20), figure("moving_average", 0.10),
-               figure("gradient_boosting", 0.10)]
+    figures = [figure("seasonal_naive", 0.20), figure("category_curve", 0.25),
+               figure("moving_average", 0.10), figure("gradient_boosting", 0.10)]
     decision = choose(figures, candidates=["gradient_boosting", "moving_average",
-                                          "seasonal_naive"],
+                                           "seasonal_naive", "category_curve"],
                       default_model="gradient_boosting")
     assert decision.tie == ("gradient_boosting", "moving_average")
     assert decision.chosen_model == "gradient_boosting"
@@ -46,7 +59,8 @@ def test_tie_is_recorded_and_broken_by_declared_order():
 
 def test_unavailable_figure_never_qualifies_and_is_not_zero_filled():
     figures = [figure("seasonal_naive", 0.20), figure("moving_average", None, available=False)]
-    decision = choose(figures, mode="strictly_better", default_model="moving_average")
+    decision = choose(figures, mode="strictly_better", default_model="moving_average",
+                      reference_name="seasonal_naive")
     assert decision.chosen_model == "moving_average"
     assert decision.outcome == "no candidate qualified"
 
@@ -54,7 +68,7 @@ def test_unavailable_figure_never_qualifies_and_is_not_zero_filled():
 def test_no_qualification_retains_the_default_and_records_the_gap():
     figures = [figure("seasonal_naive", 0.10), figure("gradient_boosting", 0.40)]
     decision = choose(figures, mode="strictly_better", default_model="gradient_boosting",
-                      on_none="retained_default")
+                      on_none="retained_default", reference_name="seasonal_naive")
     assert decision.chosen_model == "gradient_boosting"
     assert decision.outcome == "no candidate qualified"
     assert decision.on_none == "retained_default"
@@ -64,7 +78,7 @@ def test_no_qualification_retains_the_default_and_records_the_gap():
 def test_least_bad_promotes_provisionally():
     figures = [figure("seasonal_naive", 0.10), figure("gradient_boosting", 0.40)]
     decision = choose(figures, mode="strictly_better", default_model="seasonal_naive",
-                      on_none="least_bad_provisional")
+                      on_none="least_bad_provisional", reference_name="seasonal_naive")
     assert decision.chosen_model == "gradient_boosting"
     assert decision.on_none == "least_bad_provisional"
 
@@ -73,7 +87,7 @@ def test_fail_run_refuses_to_publish():
     figures = [figure("seasonal_naive", 0.10), figure("gradient_boosting", 0.40)]
     with pytest.raises(StageError):
         choose(figures, mode="strictly_better", default_model="gradient_boosting",
-               on_none="fail_run")
+               on_none="fail_run", reference_name="seasonal_naive")
 
 
 def test_choose_takes_no_array_parameter():

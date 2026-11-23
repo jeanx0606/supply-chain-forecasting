@@ -229,7 +229,7 @@ revision, regenerate R9, and rerun the gates that the REP affects.
 
 ## R13. Additional operational commands
 
-These four commands support onboarding and reporting; none of them changes a
+These six commands support onboarding and reporting; none of them changes a
 figure.
 
 | Command | Expected result |
@@ -238,6 +238,16 @@ figure.
 | `python -m codes.decision_packet` | exit 0; `docs/DECISION_PACKET.md` regenerated from the register |
 | `python -m codes.chapter_report` | exit 0; `reports/chapter_pack/<run>-<digest>/` written from the newest bundle |
 | `python -m codes.check_units` | exit 0; no scale constant in business logic |
+| `python -m codes.verify_handoff` | exit 0 when every check passes; writes `reports/handoff/handoff_verification.{json,md}`; read-only, never fits, never switches a default |
+| `python -m codes.reconcile_real_data` | exit 0 when every signed figure the cleaned contract can settle reconciles; writes `reports/reconcile/cleaned_pairs_reconciliation.{json,md}` |
 
 `python -m codes.preflight --json` emits the same report as JSON. Preflight is
 read-only: it never imports the pipeline and never fits a model.
+
+**Handoff and cleaned-pair inputs.** The two verification commands read
+`data/handoff/` (the trained model, its manifest and the reference predictor) and
+`data/cleaned/cleaned_pairs.csv` (one row per item-store pair). Both directories
+are ignored by git and are overridable with `VISUELLE_HANDOFF_DIR` and
+`VISUELLE_CLEANED_PAIRS`. They do not replace `data/raw/`: the five raw files are
+still what the pipeline ingests, so the three raw-data gates stay *not evaluated*
+until those files are present.

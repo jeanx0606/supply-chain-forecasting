@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from ..errors import StageError
 from ..seams.protocols import SeamDescription
 
-REFERENCE_MODEL = "seasonal_naive"
+REFERENCE_MODEL = "category_curve"
 RULE_ID = "min_primary_metric"
 
 
@@ -74,7 +74,7 @@ def qualifies(value: float | None, reference: float | None, mode: str,
         return False
     if mode == "strictly_better":
         return value < reference - tolerance
-    if mode == "must_not_be_worse_than_naive":
+    if mode in ("must_not_be_worse_than_naive", "must_not_be_worse_than_reference"):
         return value <= reference + tolerance
     raise StageError("selection", f"unknown qualification mode '{mode}'")
 
