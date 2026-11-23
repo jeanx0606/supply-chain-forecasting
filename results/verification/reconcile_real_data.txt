@@ -1,0 +1,29 @@
+pairs            : 106850
+reproduced        pair_total                     declared=106850 measured=106850
+reproduced        split.train                    declared=62523 measured=62523
+reproduced        split.validation               declared=19684 measured=19684
+reproduced        split.test                     declared=24643 measured=24643
+reproduced        season.train                   declared=62523 measured=62523
+reproduced        season.validation              declared=19684 measured=19684
+reproduced        season.test                    declared=24643 measured=24643
+reproduced        aw19_pairs                     declared=24643 measured=24643
+reproduced        late_aw19_pairs                declared=19134 measured=19134
+reproduced        stockout_pairs                 declared=7930 measured=7930
+reproduced        stockout_rate                  declared=0.0742 measured=0.07421619092185307
+reproduced        a3_pairs                       declared=1953 measured=1953
+reproduced        negative_pairs_with_a4         declared=1953 measured=1953
+needs_raw_events  negative_pairs_without_a4      declared=1842 measured=n/a
+needs_raw_events  a4_pairs                       declared=112 measured=n/a
+needs_raw_events  a4_pairs_requiring_a3          declared=111 measured=n/a
+needs_raw_sales   negative_cells                 declared=3386 measured=0
+reproduced        negative_rate_with_a4          declared=0.018 measured=0.018277959756668228
+reproduced        median_sell_through            declared=0.71 measured=0.7142857142857143
+reproduced        zero_sales_with_zero_stock_share declared=0.03 measured=0.028147904861287223
+needs_raw_sales   zero_sales_share               declared=0.373 measured=0.3751879581968492
+needs_raw_events  a2_first_stocked_before_release_share declared=0.78 measured=n/a
+structural checks:
+reproduced        split_partition_covers_all_pairs measured=106850
+reproduced        a3_pairs_equal_negative_pairs_before_a3 measured=1953
+result           : PASS
+not settled here: negative_pairs_without_a4, a4_pairs, a4_pairs_requiring_a3, negative_cells, zero_sales_share, a2_first_stocked_before_release_share
+reports          : reports\reconcile\cleaned_pairs_reconciliation.json / reports\reconcile\cleaned_pairs_reconciliation.md

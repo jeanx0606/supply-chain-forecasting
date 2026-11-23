@@ -1,0 +1,72 @@
+SCREENSHOT CAPTION SHEET - results/ evidence pack
+Seeded run: run_id run-42, run.seed 42. Re-run verified: the artefact tables are
+byte-identical across two seeded runs (results/verification/determinism_check.txt).
+
+Data class: SYNTHETIC SAMPLE DATA (200 items x 20 stores, 613 rows, pair_coverage 0.1532).
+These figures are a prototype self-test. They are NOT results and must not be
+reported as results. The quotable numbers remain Linda's published tables and the
+verification transcripts in results/verification/.
+
+1. Console tabs (captured by the user from streamlit run app.py)
+   Caption: "Prototype console - self-test run on synthetic sample data
+   (200 items x 20 stores, 613 rows); not a result."
+
+2. results/figures/fig1_model_selection.png
+   "Candidate models on the validation season, WAPE item-level (ratio, lower is
+   better); chosen model moving_average. Prototype self-test - not a result."
+
+3. results/figures/fig2_sigma_e_standard_deviation.png
+   "Sigma_e per model - standard deviation of weekly forecast errors on the
+   validation season, unit raw_sales_units_per_week. Prototype self-test - not a
+   result."
+
+4. results/figures/fig3_error_slices.png
+   "Forecast-error slices on the test season, WAPE (ratio), minimum slice size
+   10; worst slice volume_band: low_volume. Prototype self-test - not a result."
+
+5. results/figures/fig4_scenario_ladder.png
+   "Scenario ladder R0-R4 at the main setting L=1, R=1, z=95%: fill rate (%),
+   stock-out rate (%), weeks of cover (weeks). Prototype self-test - not a
+   result."
+
+6. results/figures/fig5_demo_forecast.png
+   "Demonstration item - forecast vs actual for weeks 3-12 with reorder point
+   50.7438 and target level 87.2438 (raw_sales_units). Prototype self-test - not
+   a result."
+
+7. results/verification/verify_handoff.txt  (quotable)
+   "Trained-model handoff verification: 10 pass, 0 fail, 5 info; parity with the
+   reference predictor max |delta| 0.000000; Chapter 7 Table 7.1 comparison max
+   |delta| 0.0005 (tolerance 0.001)."
+
+8. results/verification/reconcile_real_data.txt  (quotable)
+   "Cleaned-pair contract reconciliation: 16 figures reproduced, 0 mismatch,
+   6 not settled (they need raw sales or raw event timing)."
+
+9. results/verification/governance_checks.txt  (quotable)
+   "Governance checks: documentation contract OK (R1-R13), unit scan OK, seam
+   audit OK (19 seams), dependency audit OK."
+
+10. results/verification/pytest.txt  (quotable)
+    "Full suite: 374 passed, 3 skipped; the three skips are the raw-data gates
+    and report 'real data absent'."
+
+11. results/verification/determinism_check.txt  (quotable)
+    "Two seeded runs produced byte-identical metric, inventory, scenario,
+    quality and error-slice tables."
+
+Not in this folder, because each is one command away and reproducible:
+  run-42 artefacts   python -m codes.run_pipeline
+  chapter pack       python -m codes.chapter_report
+
+render_figures.py is kept here only as the reproduction path for the five PNGs;
+drop it if the folder must be figures-only.
+
+Reproduce:
+  python -m codes.run_pipeline
+  python -m codes.chapter_report
+  python -m codes.verify_handoff
+  python -m codes.reconcile_real_data
+  python -m codes.check_docs ; python -m codes.check_units
+  python -m codes.check_seams ; python -m codes.check_deps
+  python results/render_figures.py

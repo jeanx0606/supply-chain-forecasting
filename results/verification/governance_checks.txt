@@ -1,0 +1,12 @@
+### check_docs
+documentation contract OK: R1-R13, commands, packet, register table and version agree
+exit=0
+### check_units
+unit scan OK: no scale constant in business logic
+exit=0
+### check_seams
+seam audit OK: 19 seams, one marker each
+exit=0
+### check_deps
+dependency audit OK: ['PyYAML', 'altair', 'lightgbm', 'numpy', 'pandas', 'pytest', 'scikit-learn', 'streamlit']
+exit=0

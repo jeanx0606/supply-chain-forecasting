@@ -1,0 +1,1 @@
+DETERMINISTIC: artefact tables byte-identical across two seeded runs

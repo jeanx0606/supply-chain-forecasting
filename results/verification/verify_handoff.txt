@@ -1,0 +1,21 @@
+handoff          : data\handoff
+features         : 30
+pass     manifest                   30 features, objective poisson, sigma_e for ['B0', 'B1', 'B2', 'B3', 'LightGBM']
+pass     feature_contract           model feature list equals the manifest (30 names)
+pass     sigma_contract             sigma_e present for B0=2.0123, B1=1.7461, B2=1.5853, B3=1.6225, LightGBM=1.4881
+pass     prediction_shape           (2000, 10) for 2000 sampled pairs
+pass     non_negative               min forecast 0.1894
+pass     no_future_sales            weeks 3-12 sales mutated: forecasts unchanged
+pass     uses_observed_sales        week-1 sales +5 changed forecasts by 2.8629
+info     uses_future_discounts      future discounts are declared features; changing them moved forecasts by 3.9993
+pass     parity_with_reference      max |adapter - reference| = 0.000000 (tolerance 0.001) on 2000 pairs
+pass     replenishment_target       S = sum(forecast over L+R) + z*sigma_e*sqrt(L+R) agrees with src.replenish.policy on 12 cases
+info     replenishment_rounding     handoff recommend_order rounds up (ceil); the repository policy rounds to the nearest unit - a stated deviation, at most 1 unit (observed gap 1 unit)
+info     sigma_provenance           declared LightGBM sigma_e 1.4881; final model on validation 1.3324; the constant belongs to the validation-trained model, which the final model is not, so it must not be recomputed here
+info     test_metrics               recomputed on 24643 test pairs: WAPE 0.8227, bias -0.0636 - verification only, not the authoritative results table
+info     bias_definition            the repository reports bias as the mean signed error; the reference experiment reports error-to-volume. Both are recomputed: mean -0.0636, ratio -0.0605
+pass     published_table            Chapter 7, Table 7.1 - Forecast accuracy, test season AW19 (Chapter_7_Methodology_and_Experimental_Results_Report): max |delta| 0.0005 on bias (tolerance 0.001); bias compared as error-to-volume; two cells sit on a 4-dp half boundary: bias -0.0605 is printed as -0.061 and cumulative 0.2265 as 0.227
+counts           : pass=10 fail=0 skipped=0 info=5
+LightGBM recomputation: WAPE 0.8227 MAE 0.8655 RMSE 1.3031 bias -0.0636 cum 0.2265
+result           : PASS
+reports          : reports\handoff\handoff_verification.json / reports\handoff\handoff_verification.md
