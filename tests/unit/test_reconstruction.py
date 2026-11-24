@@ -115,9 +115,11 @@ def test_audit_counts_stockout_and_negative_pairs_before_a3():
     strategy = make_initial_stock_strategy("restocked_to_release", alpha=1.0)
     opening = {(1, 1): 0.0, (2, 1): 10.0, (3, 1): 100.0}
     audit = audit_reconstruction(data, {}, opening, strategy, n_weeks=12,
-                                 audit_weeks=11)
+                                 audit_weeks=11,
+                                 first_offset_by_key={(1, 1): 1})
     assert audit.pairs == 3
     assert audit.opening_zero_pairs == 1
+    assert audit.a4_pairs == 1
     assert audit.negative_pairs == 3
     assert audit.negative_pairs_excluding_a4 == 2
     assert audit.a4_pairs_requiring_a3 == 1

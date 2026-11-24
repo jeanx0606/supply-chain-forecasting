@@ -137,7 +137,8 @@ def test_real_dataset_reconciles_every_signed_figure():
         restocks, release_map, 12)
     audit = audit_reconstruction(
         frame, outcome.events_by_key, outcome.opening_by_key,
-        make_initial_stock_strategy("restocked_to_release", alpha=1.0))
+        make_initial_stock_strategy("restocked_to_release", alpha=1.0),
+        first_offset_by_key=outcome.first_offset_by_key)
 
     pairs = frame.drop_duplicates(subset=["external_code", "retail"])
     assert len(pairs) == EXPECTED_PAIR_TOTAL
@@ -146,7 +147,7 @@ def test_real_dataset_reconciles_every_signed_figure():
     season_split = SeasonSplit().resolve(frame["release_date"], frame["season"])
     assert season_split.counts == EXPECTED_SPLIT_COUNTS
     assert audit.pairs == EXPECTED_PAIR_TOTAL
-    assert audit.opening_zero_pairs == EXPECTED_A4_PAIRS
+    assert audit.a4_pairs == EXPECTED_A4_PAIRS
     assert audit.zero_or_below_pairs == EXPECTED_STOCKOUT_PAIRS
     assert audit.negative_pairs == EXPECTED_NEGATIVE_PAIRS_WITH_A4
     assert audit.negative_pairs_excluding_a4 == EXPECTED_NEGATIVE_PAIRS

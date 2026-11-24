@@ -16,6 +16,7 @@ class RetentionOutcome:
     policy_name: str
     restock_date_max_state: dict
     opening_by_key: dict = field(default_factory=dict)
+    first_offset_by_key: dict = field(default_factory=dict)
 
 
 class RestockRetentionPolicy:
@@ -40,6 +41,7 @@ class RestockRetentionPolicy:
         excluded = self._excluded()
         grouped: dict = {}
         opening: dict = {}
+        first_offset: dict = {}
         for row in events.itertuples(index=False):
             key = (int(row.external_code), int(row.retail))
             release = release_map.get(key)
@@ -47,10 +49,12 @@ class RestockRetentionPolicy:
                 excluded["no_matching_record"] += 1
                 continue
             event_date = self.weeks.to_date(int(row.year), int(row.week))
+            offset = (event_date - release).days // 7
+            first_offset[key] = min(first_offset.get(key, offset), offset)
+            lifecycle_week = offset + 1
             if self.enabled_cutoff() and event_date > self.cutoff:
                 excluded["calendar_cutoff"] += 1
                 continue
-            lifecycle_week = (event_date - release).days // 7 + 1
             quantity = float(row.qty)
             if quantity < 0:
                 quantity = 0.0
@@ -69,7 +73,7 @@ class RestockRetentionPolicy:
         if self.enabled_cutoff():
             state["state"] = "applied"
         return RetentionOutcome(grouped, excluded, self.policy_name, state,
-                                opening)
+                                opening, first_offset)
 
     def enabled_cutoff(self) -> bool:
         return False

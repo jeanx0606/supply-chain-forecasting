@@ -172,7 +172,8 @@ def run(cfg, verbose: bool | None = None) -> ResultBundle:
         floor_at_zero=cfg.inventory.floor_at_zero)
     audit = audit_reconstruction(
         frame, outcome.events_by_key, outcome.opening_by_key,
-        seams.initial_stock, cfg.data.n_weeks)
+        seams.initial_stock, cfg.data.n_weeks,
+        first_offset_by_key=outcome.first_offset_by_key)
     reconstruction_audit = {
         **audit.as_dict(),
         "a3_switch": "on" if cfg.inventory.negative_correction else "off",

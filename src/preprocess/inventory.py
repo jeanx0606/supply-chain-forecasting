@@ -280,6 +280,7 @@ def _note_with_policy(note: str, policy: ReconstructionPolicy,
 class ReconstructionAudit:
     pairs: int
     opening_zero_pairs: int
+    a4_pairs: int
     zero_or_below_pairs: int
     negative_pairs: int
     negative_pairs_excluding_a4: int
@@ -289,7 +290,7 @@ class ReconstructionAudit:
 
     def as_dict(self) -> dict:
         return {"pairs": int(self.pairs),
-                "a4_pairs": int(self.opening_zero_pairs),
+                "a4_pairs": int(self.a4_pairs),
                 "a4_opening_zero_pairs": int(self.opening_zero_pairs),
                 "a4_pairs_requiring_a3": int(self.a4_pairs_requiring_a3),
                 "zero_or_below_pairs": int(self.zero_or_below_pairs),
@@ -302,10 +303,13 @@ class ReconstructionAudit:
 
 def audit_reconstruction(frame, events_by_key: dict, opening_by_key: dict,
                          strategy: InitialStockStrategy, n_weeks: int = 12,
-                         audit_weeks: int = 11) -> ReconstructionAudit:
+                         audit_weeks: int = 11,
+                         first_offset_by_key: dict | None = None) -> ReconstructionAudit:
     """Count stock-out and negative pairs before any A3 correction (Ch. 5/7 figures)."""
+    first_offset_by_key = first_offset_by_key or {}
     pairs = 0
     opening_zero = 0
+    a4 = 0
     zero_or_below = 0
     negative = 0
     negative_no_a4 = 0
@@ -317,21 +321,24 @@ def audit_reconstruction(frame, events_by_key: dict, opening_by_key: dict,
         opening = float(opening_by_key.get(key, 0.0))
         estimate = strategy.estimate(row, events_by_key.get(key, {}), opening)
         path = _walk(float(estimate.value), events_by_key.get(key, {}), row, n_weeks)
-        window = [float(estimate.value)] + path[:audit_weeks]
+        window = path[: audit_weeks + 1]
         pairs += 1
+        is_a4 = first_offset_by_key.get(key, 0) > 0
         if opening <= 0:
             opening_zero += 1
+        if is_a4:
+            a4 += 1
         if any(value <= 0 for value in window):
             zero_or_below += 1
         if any(value < 0 for value in window):
             negative += 1
-            if opening > 0:
-                negative_no_a4 += 1
-            else:
+            if is_a4:
                 a4_requiring += 1
+            else:
+                negative_no_a4 += 1
         correction_total += max(0.0, -min(window))
         worst = min(worst, min(window))
-    return ReconstructionAudit(pairs, opening_zero, zero_or_below, negative,
+    return ReconstructionAudit(pairs, opening_zero, a4, zero_or_below, negative,
                                negative_no_a4, a4_requiring,
                                round(correction_total, 6), round(worst, 6))
 

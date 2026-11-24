@@ -7,6 +7,9 @@ venv/
 data/raw/*.csv
 data/cleaned/
 data/handoff/
+data/raw_real/
+data/trends/
+data/preset/
 output/*/
 !output/.gitkeep
 reports/
